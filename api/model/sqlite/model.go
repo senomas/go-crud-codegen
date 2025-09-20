@@ -19,7 +19,7 @@ type repos struct {
 
 func init() {
 	dir, _ := os.Getwd()
-	dsn := fmt.Sprintf("file:%s/../../app.db?_busy_timeout=5000&cache=shared&mode=rwc&?_foreign_keys=on", dir)
+	dsn := fmt.Sprintf("file:%s/../app.db?_busy_timeout=5000&cache=shared&mode=rwc&?_foreign_keys=on", dir)
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		log.Fatal(err)

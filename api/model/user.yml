@@ -1,0 +1,32 @@
+User:
+  table: app_user
+  audit: true
+  version: true
+  fields:
+    - id: id
+      type: autoincrement
+    - id: email
+      type: text
+    - id: name
+      type: text
+    - id: salt
+      type: text
+      filter: false
+      sorted: false
+    - id: password
+      type: password
+      filter: false
+      sorted: false
+    - id: token
+      type: password
+      null: true
+      filter: false
+      sorted: false
+    - id: created_by
+      type: many-to-one
+      target: user
+      title: name
+  pkey:
+    - id
+  uniques:
+    - name

@@ -7,8 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"hanoman.co.id/mwui/api/model"
-
-	_ "hanoman.co.id/mwui/api/model/sqlite"
 )
 
 func TestCrud(t *testing.T) {
@@ -35,6 +33,12 @@ func TestCrud(t *testing.T) {
 		assert.NotNil(t, ctx)
 		user, err := repos.User().Get(1)
 		assert.NoError(t, err)
+
+		assert.Equal(t, "admin@example.com", user.Email)
+		assert.Equal(t, "Admin", user.Name)
+		assert.Equal(t, "", user.Salt)
+		assert.Equal(t, "", user.Password)
+		assert.Equal(t, "", user.CreatedAt)
 		log.Print(user)
 	})
 }

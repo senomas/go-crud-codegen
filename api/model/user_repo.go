@@ -1,21 +1,27 @@
-package sqlite
+package model
 
 import (
+	"context"
+	"database/sql"
+	"log"
 	"time"
 
-	"hanoman.co.id/mwui/api/model"
+	"github.com/doug-martin/goqu/v9"
 )
 
-type DB_KEY_TYPE string
-
-const DB_KEY DB_KEY_TYPE = "sqlite"
-
 type UserRepositoryImpl struct {
-	*repos
+	ctx context.Context
+	tx  *sql.Tx
+	db  *goqu.Database
 }
 
-func (r *UserRepositoryImpl) Create(user model.User) (int64, error) {
+func (r *UserRepositoryImpl) Create(user User) (int64, error) {
 	defer r.tx.Commit()
+	sql, args, err := r.db.Insert("app_user").Rows(user).ToSQL()
+	if err != nil {
+		return 0, err
+	}
+	log.Printf("Create.user %v\n%v\n", sql, args)
 	res, err := r.tx.ExecContext(r.ctx, `
 		INSERT INTO app_user(
 			email,
@@ -35,7 +41,7 @@ func (r *UserRepositoryImpl) Create(user model.User) (int64, error) {
 	return res.LastInsertId()
 }
 
-func (r *UserRepositoryImpl) Update(user model.User) error {
+func (r *UserRepositoryImpl) Update(user User) error {
 	return nil
 }
 
@@ -43,7 +49,7 @@ func (r *UserRepositoryImpl) Delete(id int64) error {
 	return nil
 }
 
-func (r *UserRepositoryImpl) Get(id int64) (*model.User, error) {
+func (r *UserRepositoryImpl) Get(id int64) (*User, error) {
 	defer r.tx.Commit()
 	row := r.tx.QueryRowContext(r.ctx, `
 		SELECT
@@ -60,7 +66,7 @@ func (r *UserRepositoryImpl) Get(id int64) (*model.User, error) {
 			app_user
 		WHERE id = $1
 	`, id)
-	var user model.User
+	var user User
 	var createdBy int64
 	var createdAt time.Time
 	var updatedBy int64
@@ -83,6 +89,6 @@ func (r *UserRepositoryImpl) Get(id int64) (*model.User, error) {
 	return &user, nil
 }
 
-func (r *UserRepositoryImpl) Find(filter model.UserFilter) ([]model.User, int64, error) {
+func (r *UserRepositoryImpl) Find(filter UserFilter) ([]User, int64, error) {
 	return nil, 0, nil
 }

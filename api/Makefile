@@ -6,4 +6,5 @@ SHELL := /bin/bash
 RUN_TARGET ?= test
 
 test: FORCE
+	rm -rf app.db
 	go test -v ./...
