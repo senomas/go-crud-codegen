@@ -5,6 +5,13 @@ SHELL := /bin/bash
 
 RUN_TARGET ?= test
 
-test: FORCE
+test: build FORCE
 	rm -rf app.db
 	go test -v ./...
+
+build: FORCE
+	@cd ../apigen && go run .
+	@~/go/bin/goimports -w . 2>/dev/null || go install golang.org/x/tools/cmd/goimports@latest && ~/go/bin/goimports -w .
+	@gofmt -s -w .
+
+

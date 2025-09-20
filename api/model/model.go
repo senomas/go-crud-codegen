@@ -2,7 +2,7 @@ package model
 
 import (
 	"context"
-	"fmt"
+	"database/sql"
 	"log"
 )
 
@@ -19,6 +19,19 @@ type StringFilter struct {
 	Value *string        `json:"value"`
 }
 
+type IntFilterOp string
+
+const (
+	IntFilterOp_EQ      StringFilterOp = "eq"
+	IntFilterOp_Between StringFilterOp = "between"
+)
+
+type IntFilter struct {
+	Op     IntFilterOp `json:"op"`
+	Value  *int64      `json:"value"`
+	Value2 *int64      `json:"value2"`
+}
+
 type SortDir string
 
 const (
@@ -26,22 +39,20 @@ const (
 	SortDir_DESC SortDir = "desc"
 )
 
-type Repos interface {
-	User() UserRepository
-}
-
-type ReposWithCtx func(ctx context.Context) (Repos, context.Context, error)
-
-var reposMap = map[string]ReposWithCtx{}
-
-func Register(id string, repos ReposWithCtx) {
-	reposMap[id] = repos
-}
-
-func GetRepos(id string, ctx context.Context) (Repos, context.Context, error) {
-	repos := reposMap[id]
-	if repos == nil {
-		log.Fatal(fmt.Errorf("Repos '%s' not initialized", id))
+func NewUserRepository(ctx context.Context, db *sql.DB) *UserRepositoryImpl {
+	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS app_user (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		email VARCHAR(255) UNIQUE,
+		name VARCHAR(255),
+		salt VARCHAR(255),
+		password VARCHAR(255),
+		token VARCHAR(255)
+	)`)
+	if err != nil {
+		log.Panic(err)
 	}
-	return repos(ctx)
+	return &UserRepositoryImpl{
+		ctx: ctx,
+		db:  db,
+	}
 }

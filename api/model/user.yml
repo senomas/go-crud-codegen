@@ -3,30 +3,23 @@ User:
   audit: true
   version: true
   fields:
-    - id: id
+    - id: ID
+      field: id
       type: autoincrement
-    - id: email
+    - id: Email
       type: text
-    - id: name
+    - id: Name
       type: text
-    - id: salt
-      type: text
-      filter: false
-      sorted: false
-    - id: password
+    - id: Salt
+      type: salt
+    - id: Password
       type: password
-      filter: false
-      sorted: false
-    - id: token
+    - id: Token
       type: password
-      null: true
+      nullable: true
       filter: false
       sorted: false
-    - id: created_by
-      type: many-to-one
-      target: user
-      title: name
   pkey:
-    - id
+    - ID
   uniques:
-    - name
+    - Name
