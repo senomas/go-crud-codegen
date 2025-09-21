@@ -13,7 +13,7 @@ services:
     logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_TEST_PASSWORD}
       POSTGRES_DB: wmb
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql

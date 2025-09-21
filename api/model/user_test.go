@@ -2,24 +2,16 @@ package model_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"hanoman.co.id/mwui/api/model"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestUserCrud(t *testing.T) {
-	dsn := "file:../app.db?_busy_timeout=5000&cache=shared&mode=rwc&_foreign_keys=on"
-	db, err := sql.Open("sqlite3", dsn)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-
-	var userRepo model.UserRepository
-	userRepo = model.NewUserRepository(context.Background(), db)
+	repos := model.GetRepos()
+	ctx := context.Background()
 
 	t.Run("Create user Admin", func(t *testing.T) {
 		user := model.User{
@@ -27,14 +19,14 @@ func TestUserCrud(t *testing.T) {
 			Name:  "Admin",
 		}
 
-		res, err := userRepo.Create(user)
+		res, err := repos.User().Create(ctx, user)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(1), res.ID)
 	})
 
 	t.Run("Get user Admin", func(t *testing.T) {
-		user, err := userRepo.Get(1)
+		user, err := repos.User().Get(ctx, 1)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), user.ID)
@@ -51,12 +43,12 @@ func TestUserCrud(t *testing.T) {
 			Name:  "Admin",
 		}
 
-		err := userRepo.Update(user)
+		err := repos.User().Update(ctx, user)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Get user Admin after update", func(t *testing.T) {
-		user, err := userRepo.Get(1)
+		user, err := repos.User().Get(ctx, 1)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), user.ID)
@@ -67,7 +59,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find all user", func(t *testing.T) {
-		users, total, err := userRepo.Find(nil, nil, 10, 0)
+		users, total, err := repos.User().Find(ctx, nil, nil, 10, 0)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), total, "total must 1")
@@ -84,14 +76,14 @@ func TestUserCrud(t *testing.T) {
 			Name:  "Staff",
 		}
 
-		res, err := userRepo.Create(user)
+		res, err := repos.User().Create(ctx, user)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(2), res.ID)
 	})
 
 	t.Run("Get user Staff", func(t *testing.T) {
-		user, err := userRepo.Get(2)
+		user, err := repos.User().Get(ctx, 2)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(2), user.ID)
@@ -107,7 +99,7 @@ func TestUserCrud(t *testing.T) {
 			Name:  "Operator 1",
 		}
 
-		res, err := userRepo.Create(user)
+		res, err := repos.User().Create(ctx, user)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(3), res.ID)
@@ -119,7 +111,7 @@ func TestUserCrud(t *testing.T) {
 			Name:  "Operator 2",
 		}
 
-		res, err := userRepo.Create(user)
+		res, err := repos.User().Create(ctx, user)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(4), res.ID)
@@ -132,7 +124,7 @@ func TestUserCrud(t *testing.T) {
 				Name:  fmt.Sprintf("Dummy %d", i),
 			}
 
-			res, err := userRepo.Create(user)
+			res, err := repos.User().Create(ctx, user)
 			assert.NoError(t, err)
 			assert.NotNil(t, res)
 			assert.Equal(t, int64(4+i), res.ID)
@@ -140,7 +132,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find all user", func(t *testing.T) {
-		users, total, err := userRepo.Find(nil, nil, 10, 0)
+		users, total, err := repos.User().Find(ctx, nil, nil, 10, 0)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(27), total, "total must match")
@@ -151,7 +143,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find all user limit 5 offset 5", func(t *testing.T) {
-		users, total, err := userRepo.Find(nil, nil, 5, 5)
+		users, total, err := repos.User().Find(ctx, nil, nil, 5, 5)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(27), total, "total must match")
@@ -162,7 +154,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find users like dummy% limit 5", func(t *testing.T) {
-		users, total, err := userRepo.Find([]model.UserFilter{{
+		users, total, err := repos.User().Find(ctx, []model.UserFilter{{
 			Field: model.UserField_Name,
 			Op:    model.FilterOp_Like,
 			Value: "dummy%",

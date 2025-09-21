@@ -1,10 +1,10 @@
 package model
 
 import (
-	"context"
 	"database/sql"
-	"fmt"
 	"log"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type FilterOp string
@@ -22,26 +22,25 @@ const (
 	SortDir_DESC SortDir = "desc"
 )
 
-func NewUserRepository(ctx context.Context, db *sql.DB) *UserRepositoryImpl {
-	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS app_user (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		email VARCHAR(255) UNIQUE,
-		name VARCHAR(255),
-		salt VARCHAR(255),
-		password VARCHAR(255),
-		token VARCHAR(255)
-	)`)
+type Repos interface {
+	User() UserRepository
+}
+
+type RepositoryImpl struct {
+	db *sql.DB
+}
+
+func GetRepos() Repos {
+	dsn := "file:../app.db?_busy_timeout=5000&cache=shared&mode=rwc&_foreign_keys=on"
+	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
-	total := 0
-	err = db.QueryRowContext(ctx, "\nSELECT COUNT(*) FROM \napp_user WHERE name LIKE ?", "%foo%").Scan(&total)
-	if err != nil {
-		log.Panic(err)
-	}
-	fmt.Println("Total users with name like:", total)
+	return &RepositoryImpl{db: db}
+}
+
+func (r *RepositoryImpl) User() UserRepository {
 	return &UserRepositoryImpl{
-		ctx: ctx,
-		db:  db,
+		RepositoryImpl: *r,
 	}
 }

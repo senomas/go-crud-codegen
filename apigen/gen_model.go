@@ -9,11 +9,8 @@ import (
 	"strings"
 )
 
-func GenModels(models map[string]ModelDef, dir string) error {
-	tmpl, err := template.New("model").Parse(templ_model)
-	if err != nil {
-		return err
-	}
+func GenModels(tmpl *template.Template, models map[string]ModelDef, dir string) error {
+	tmpl = tmpl.Lookup("gen_model.tmpl")
 	for name, md := range models {
 		if n, ok := strings.CutPrefix(md.Path, dir); ok {
 			mdir := path.Join(dir, n, fmt.Sprintf("%s.go", strings.ToLower(name)))
@@ -35,7 +32,7 @@ func GenModels(models map[string]ModelDef, dir string) error {
 
 			for _, fd := range md.Fields {
 				df := map[string]string{
-					"BT":    "`",
+					"Model": name,
 					"Name":  fd.ID,
 					"Field": fd.Field,
 					"Type":  fd.GoType,
@@ -44,7 +41,10 @@ func GenModels(models map[string]ModelDef, dir string) error {
 			}
 			dmodel["Fields"] = dfields
 
-			tmpl.Execute(f, dmodel)
+			err = tmpl.Execute(f, dmodel)
+			if err != nil {
+				return err
+			}
 			fmt.Printf("Model: %s PATH [%s]\n", name, mdir)
 		} else {
 			log.Fatalf("Model %s path %s not in dir %s", name, md.Path, dir)

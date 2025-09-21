@@ -11,14 +11,8 @@ import (
 	"strings"
 )
 
-func GenRepos(models map[string]ModelDef, dir string) error {
-	tmpl, err := template.New("repo").Funcs(template.FuncMap{
-		"add": func(a, b int) int { return a + b },
-	}).Parse(templ_repo)
-	if err != nil {
-		return err
-	}
-
+func GenRepos(tmpl *template.Template, models map[string]ModelDef, dir string) error {
+	tmpl = tmpl.Lookup("gen_repo.tmpl")
 	for name, md := range models {
 		if n, ok := strings.CutPrefix(md.Path, dir); ok {
 			mdir := path.Join(dir, n, fmt.Sprintf("%s_repo.go", strings.ToLower(name)))
@@ -29,7 +23,6 @@ func GenRepos(models map[string]ModelDef, dir string) error {
 			defer f.Close()
 
 			dmodel := map[string]any{
-				"BT":    "`",
 				"Name":  name,
 				"Table": md.Table,
 			}
@@ -45,7 +38,6 @@ func GenRepos(models map[string]ModelDef, dir string) error {
 			for _, fd := range md.Fields {
 				pkey := slices.Contains(md.PKey, fd.ID)
 				df := map[string]any{
-					"BT":     "`",
 					"Model":  name,
 					"Name":   fd.ID,
 					"Field":  fd.Field,

@@ -11,20 +11,20 @@ import (
 )
 
 type UserRepository interface {
-	Create(obj User) (*User, error)
-	Get(id int64) (*User, error)
-	Find(filter []UserFilter, sort []UserSort, limit int, offset int64) ([]User, int64, error)
-	Update(obj User) error
-	Delete(id int64) error
+	Create(ctx context.Context, obj User) (*User, error)
+	Get(ctx context.Context, id int64) (*User, error)
+	Find(ctx context.Context, filter []UserFilter, sort []UserSort, limit int, offset int64) ([]User, int64, error)
+	Update(ctx context.Context, obj User) error
+	Delete(ctx context.Context, id int64) error
 }
 
 type UserRepositoryImpl struct {
-	ctx context.Context
-	db  *sql.DB
+	RepositoryImpl
+	db *sql.DB
 }
 
-func (r *UserRepositoryImpl) Create(obj User) (*User, error) {
-	tx, err := r.db.BeginTx(r.ctx, nil)
+func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (r *UserRepositoryImpl) Create(obj User) (*User, error) {
 			$4,
 			$5
     )`
-	res, err := r.db.ExecContext(r.ctx, sql,
+	res, err := r.db.ExecContext(ctx, sql,
 		obj.Email,
 		obj.Name,
 		obj.Salt,
@@ -64,7 +64,7 @@ func (r *UserRepositoryImpl) Create(obj User) (*User, error) {
 	return &obj, nil
 }
 
-func (r *UserRepositoryImpl) Get(id int64) (*User, error) {
+func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 	sql := `
     SELECT
 			id,
@@ -77,7 +77,7 @@ func (r *UserRepositoryImpl) Get(id int64) (*User, error) {
     WHERE
 			id = $1`
 	var obj User
-	err := r.db.QueryRowContext(r.ctx, sql, id).Scan(
+	err := r.db.QueryRowContext(ctx, sql, id).Scan(
 		&obj.ID,
 		&obj.Email,
 		&obj.Name,
@@ -91,7 +91,7 @@ func (r *UserRepositoryImpl) Get(id int64) (*User, error) {
 	return &obj, nil
 }
 
-func (r *UserRepositoryImpl) Find(filter []UserFilter, sort []UserSort, limit int, offset int64) ([]User, int64, error) {
+func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort []UserSort, limit int, offset int64) ([]User, int64, error) {
 	qfilter := []string{}
 	args := []any{}
 	for _, f := range filter {
@@ -132,7 +132,7 @@ func (r *UserRepositoryImpl) Find(filter []UserFilter, sort []UserSort, limit in
 	}
 	slog.Info("Find", "SQL:", sql)
 	total := int64(0)
-	err := r.db.QueryRowContext(r.ctx, sql, args...).Scan(&total)
+	err := r.db.QueryRowContext(ctx, sql, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -149,7 +149,7 @@ func (r *UserRepositoryImpl) Find(filter []UserFilter, sort []UserSort, limit in
 		sql += "\n  WHERE" + strings.Join(qfilter, " AND\n    ")
 	}
 	sql += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
-	rows, err := r.db.QueryContext(r.ctx, sql, args...)
+	rows, err := r.db.QueryContext(ctx, sql, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -172,8 +172,8 @@ func (r *UserRepositoryImpl) Find(filter []UserFilter, sort []UserSort, limit in
 	return list, total, nil
 }
 
-func (r *UserRepositoryImpl) Update(obj User) error {
-	tx, err := r.db.BeginTx(r.ctx, nil)
+func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (r *UserRepositoryImpl) Update(obj User) error {
 			name = $2
     WHERE
 			id = $3`
-	_, err = r.db.ExecContext(r.ctx, sql,
+	_, err = r.db.ExecContext(ctx, sql,
 		obj.Email,
 		obj.Name,
 		obj.ID,
@@ -199,12 +199,12 @@ func (r *UserRepositoryImpl) Update(obj User) error {
 	return nil
 }
 
-func (r *UserRepositoryImpl) Delete(id int64) error {
+func (r *UserRepositoryImpl) Delete(ctx context.Context, id int64) error {
 	sql := `
     DELETE FROM app_user
     WHERE
 			id = $1`
-	_, err := r.db.ExecContext(r.ctx, sql, id)
+	_, err := r.db.ExecContext(ctx, sql, id)
 	if err != nil {
 		return err
 	}
