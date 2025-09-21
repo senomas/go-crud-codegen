@@ -8,24 +8,27 @@ type User struct {
 	Name     string  `json:"name"`
 	Salt     string  `json:"salt"`
 	Password string  `json:"password"`
-	Token    *string `json:"token,omitempty"`
+	Token    *string `json:"token"`
 }
 
-type UserSortFields string
+type UserField string
 
 const (
-	User_ID    UserSortFields = "id"
-	User_Email UserSortFields = "email"
-	User_Name  UserSortFields = "name"
+	UserField_ID       UserField = "id"
+	UserField_Email    UserField = "email"
+	UserField_Name     UserField = "name"
+	UserField_Salt     UserField = "salt"
+	UserField_Password UserField = "password"
+	UserField_Token    UserField = "token"
 )
 
 type UserSort struct {
-	Field UserSortFields `json:"field"`
-	Dir   SortDir        `json:"dir"`
+	Field UserField `json:"field"`
+	Dir   SortDir   `json:"dir"`
 }
 
 type UserFilter struct {
-	ID    IntFilter    `json:"id"`
-	Email StringFilter `json:"email"`
-	Name  StringFilter `json:"name"`
+	Field UserField `json:"field"`
+	Op    FilterOp  `json:"op"`
+	Value string    `json:"value"`
 }

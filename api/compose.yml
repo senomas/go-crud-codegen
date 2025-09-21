@@ -1,0 +1,25 @@
+# Define your reusable logging configuration using an anchor
+x-logging-config:
+  &default-logging # 'x-' prefix is a convention for extension fields, not strictly required for anchors
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  test-db:
+    image: ${DOCKER_REGISTRY}/postgres:${POSTGRES_VERSION}
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: wmb
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db:/var/lib/postgresql/init
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logstash -d wmb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5

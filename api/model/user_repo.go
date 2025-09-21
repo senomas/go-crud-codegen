@@ -5,12 +5,15 @@ package model
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"log/slog"
+	"strings"
 )
 
 type UserRepository interface {
 	Create(obj User) (*User, error)
 	Get(id int64) (*User, error)
-	Find(filter UserFilter, sort []UserSort) ([]User, int64, error)
+	Find(filter []UserFilter, sort []UserSort, limit int, offset int64) ([]User, int64, error)
 	Update(obj User) error
 	Delete(id int64) error
 }
@@ -28,13 +31,18 @@ func (r *UserRepositoryImpl) Create(obj User) (*User, error) {
 	defer tx.Rollback()
 	sql := `
     INSERT INTO app_user (
-      email,
-      name,
-      salt,
-      password,
-      token)
-    VALUES (
-      $1, $2, $3, $4, $5)`
+			email,
+			name,
+			salt,
+			password,
+			token
+    ) VALUES (
+			$1,
+			$2,
+			$3,
+			$4,
+			$5
+    )`
 	res, err := r.db.ExecContext(r.ctx, sql,
 		obj.Email,
 		obj.Name,
@@ -59,15 +67,15 @@ func (r *UserRepositoryImpl) Create(obj User) (*User, error) {
 func (r *UserRepositoryImpl) Get(id int64) (*User, error) {
 	sql := `
     SELECT
-      id,
-      email,
-      name,
-      salt,
-      password,
-      token
+			id,
+			email,
+			name,
+			salt,
+			password,
+			token
     FROM app_user
     WHERE
-      id = $1`
+			id = $1`
 	var obj User
 	err := r.db.QueryRowContext(r.ctx, sql, id).Scan(
 		&obj.ID,
@@ -81,4 +89,124 @@ func (r *UserRepositoryImpl) Get(id int64) (*User, error) {
 		return nil, err
 	}
 	return &obj, nil
+}
+
+func (r *UserRepositoryImpl) Find(filter []UserFilter, sort []UserSort, limit int, offset int64) ([]User, int64, error) {
+	qfilter := []string{}
+	args := []any{}
+	for _, f := range filter {
+		switch f.Field {
+		case UserField_Email:
+			switch f.Op {
+			case FilterOp_EQ:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, "email = ?")
+			case FilterOp_Like:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, fmt.Sprintf("email LIKE $%d", len(args)))
+			case FilterOp_ILike:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, fmt.Sprintf("email ILIKE $%d", len(args)))
+			default:
+				return nil, 0, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
+			}
+		case UserField_Name:
+			switch f.Op {
+			case FilterOp_EQ:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, "name = ?")
+			case FilterOp_Like:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, fmt.Sprintf("name LIKE $%d", len(args)))
+			case FilterOp_ILike:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, fmt.Sprintf("name ILIKE $%d", len(args)))
+			default:
+				return nil, 0, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
+			}
+		}
+	}
+	sql := `SELECT COUNT(id) FROM app_user`
+	if len(qfilter) > 0 {
+		sql += " WHERE " + strings.Join(qfilter, " AND ")
+	}
+	slog.Info("Find", "SQL:", sql)
+	total := int64(0)
+	err := r.db.QueryRowContext(r.ctx, sql, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+	sql = `
+    SELECT
+			id,
+			email,
+			name,
+			salt,
+			password,
+			token
+    FROM app_user`
+	if len(qfilter) > 0 {
+		sql += "\n  WHERE" + strings.Join(qfilter, " AND\n    ")
+	}
+	sql += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
+	rows, err := r.db.QueryContext(r.ctx, sql, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	list := []User{}
+	for rows.Next() {
+		var obj User
+		err = rows.Scan(
+			&obj.ID,
+			&obj.Email,
+			&obj.Name,
+			&obj.Salt,
+			&obj.Password,
+			&obj.Token,
+		)
+		list = append(list, obj)
+		if err != nil {
+			return nil, total, err
+		}
+	}
+	return list, total, nil
+}
+
+func (r *UserRepositoryImpl) Update(obj User) error {
+	tx, err := r.db.BeginTx(r.ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	sql := `
+    UPDATE app_user SET
+			email = $1,
+			name = $2
+    WHERE
+			id = $3`
+	_, err = r.db.ExecContext(r.ctx, sql,
+		obj.Email,
+		obj.Name,
+		obj.ID,
+	)
+	if err != nil {
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *UserRepositoryImpl) Delete(id int64) error {
+	sql := `
+    DELETE FROM app_user
+    WHERE
+			id = $1`
+	_, err := r.db.ExecContext(r.ctx, sql, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }

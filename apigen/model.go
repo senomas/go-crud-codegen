@@ -17,8 +17,6 @@ type FieldDef struct {
 	Field  string         `yaml:"field,omitempty"`
 	Type   string         `yaml:"type"`
 	Null   bool           `yaml:"nullable,omitempty"`
-	Filter *bool          `yaml:"filter,omitempty"`
-	Sorted *bool          `yaml:"sorted,omitempty"`
 	Extras map[string]any `yaml:",inline"`
 	GoType string
 }
@@ -70,9 +68,6 @@ func LoadModels(models map[string]ModelDef, dir string) error {
 						mo.Fields[i].GoType = "string"
 					case "password", "salt":
 						mo.Fields[i].GoType = "string"
-						v := false
-						mo.Fields[i].Sorted = &v
-						mo.Fields[i].Filter = &v
 					case "many-to-one":
 						mo.Fields[i].GoType = "*" + mo.Fields[i].Extras["ref"].(string)
 					default:

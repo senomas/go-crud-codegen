@@ -3,34 +3,17 @@ package model
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 )
 
-type StringFilterOp string
+type FilterOp string
 
 const (
-	StringFilterOp_EQ    StringFilterOp = "eq"
-	StringFilterOp_Like  StringFilterOp = "like"
-	StringFilterOp_ILike StringFilterOp = "ilike"
+	FilterOp_EQ    FilterOp = "eq"
+	FilterOp_Like  FilterOp = "like"
+	FilterOp_ILike FilterOp = "ilike"
 )
-
-type StringFilter struct {
-	Op    StringFilterOp `json:"op"`
-	Value *string        `json:"value"`
-}
-
-type IntFilterOp string
-
-const (
-	IntFilterOp_EQ      StringFilterOp = "eq"
-	IntFilterOp_Between StringFilterOp = "between"
-)
-
-type IntFilter struct {
-	Op     IntFilterOp `json:"op"`
-	Value  *int64      `json:"value"`
-	Value2 *int64      `json:"value2"`
-}
 
 type SortDir string
 
@@ -51,6 +34,12 @@ func NewUserRepository(ctx context.Context, db *sql.DB) *UserRepositoryImpl {
 	if err != nil {
 		log.Panic(err)
 	}
+	total := 0
+	err = db.QueryRowContext(ctx, "\nSELECT COUNT(*) FROM \napp_user WHERE name LIKE ?", "%foo%").Scan(&total)
+	if err != nil {
+		log.Panic(err)
+	}
+	fmt.Println("Total users with name like:", total)
 	return &UserRepositoryImpl{
 		ctx: ctx,
 		db:  db,

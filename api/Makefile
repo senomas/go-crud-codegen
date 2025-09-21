@@ -5,9 +5,12 @@ SHELL := /bin/bash
 
 RUN_TARGET ?= test
 
-test: build FORCE
+test: test-apigen build FORCE
 	rm -rf app.db
 	go test -v ./...
+
+test-apigen: FORCE
+	@cd ../apigen && go test ./...
 
 build: FORCE
 	@cd ../apigen && go run .
