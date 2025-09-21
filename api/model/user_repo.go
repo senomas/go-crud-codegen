@@ -4,7 +4,6 @@ package model
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -19,8 +18,7 @@ type UserRepository interface {
 }
 
 type UserRepositoryImpl struct {
-	RepositoryImpl
-	db *sql.DB
+	*RepositoryImpl
 }
 
 func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error) {
@@ -31,17 +29,17 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 	defer tx.Rollback()
 	sql := `
     INSERT INTO app_user (
-			email,
-			name,
-			salt,
-			password,
-			token
+	  	email,
+      name,
+      salt,
+      password,
+      token
     ) VALUES (
 			$1,
-			$2,
-			$3,
-			$4,
-			$5
+      $2,
+      $3,
+      $4,
+      $5
     )`
 	res, err := r.db.ExecContext(ctx, sql,
 		obj.Email,
@@ -67,15 +65,14 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 	sql := `
     SELECT
-			id,
-			email,
-			name,
-			salt,
-			password,
-			token
-    FROM app_user
-    WHERE
-			id = $1`
+      id,
+      email,
+      name,
+      salt,
+      password,
+      token
+    FROM app_user WHERE
+      id = $1`
 	var obj User
 	err := r.db.QueryRowContext(ctx, sql, id).Scan(
 		&obj.ID,
@@ -138,12 +135,12 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 	}
 	sql = `
     SELECT
-			id,
-			email,
-			name,
-			salt,
-			password,
-			token
+      id,
+      email,
+      name,
+      salt,
+      password,
+      token
     FROM app_user`
 	if len(qfilter) > 0 {
 		sql += "\n  WHERE" + strings.Join(qfilter, " AND\n    ")
@@ -180,8 +177,8 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
 	defer tx.Rollback()
 	sql := `
     UPDATE app_user SET
-			email = $1,
-			name = $2
+  		email = $1,
+      name = $2
     WHERE
 			id = $3`
 	_, err = r.db.ExecContext(ctx, sql,
@@ -201,9 +198,8 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
 
 func (r *UserRepositoryImpl) Delete(ctx context.Context, id int64) error {
 	sql := `
-    DELETE FROM app_user
-    WHERE
-			id = $1`
+    DELETE FROM app_user WHERE
+			id = $1 AND`
 	_, err := r.db.ExecContext(ctx, sql, id)
 	if err != nil {
 		return err

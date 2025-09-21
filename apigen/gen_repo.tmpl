@@ -15,8 +15,7 @@ type {{.Name}}Repository interface {
 }
 
 type {{.Name}}RepositoryImpl struct {
-	RepositoryImpl
-	db *sql.DB
+	*RepositoryImpl
 }
 
 func (r *{{.Name}}RepositoryImpl) Create(ctx context.Context, obj {{.Name}}) (*{{.Name}}, error) {
@@ -27,12 +26,12 @@ func (r *{{.Name}}RepositoryImpl) Create(ctx context.Context, obj {{.Name}}) (*{
   defer tx.Rollback()
   sql := `
     INSERT INTO {{.Table}} (
-	  	{{- range .Fields }}{{if not (eq .Type "autoincrement") }}
-			{{.Field}}{{if not .Last}},{{end}}
+	  	{{ $idx := 0 }}{{- range .Fields }}{{if not (eq .Type "autoincrement") -}}
+			{{if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{.Field}}
 		  {{- end}}{{end}}
     ) VALUES (
-			{{- range $i, $v := .Fields}}{{if not (eq .Type "autoincrement") }}
-			${{$i}}{{if not .Last}},{{end}}
+			{{ $idx := 0 }}{{- range $i, $v := .Fields}}{{if not (eq .Type "autoincrement") -}}
+			{{if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}${{$i}}
 		  {{- end}}{{end}}
     )`
   res, err := r.db.ExecContext(ctx, sql,
@@ -54,22 +53,39 @@ func (r *{{.Name}}RepositoryImpl) Create(ctx context.Context, obj {{.Name}}) (*{
   return &obj, nil
 }
 
+{{- define "SelectField" }}
+	{{- range $idx, $v := . -}}
+	{{if gt $idx 0}},{{ "\n      " }}{{end}}{{.Field}}
+	{{- end}}
+{{- end}}
+
+{{- define "ScanField" }}
+	{{- range . }}
+		&obj.{{.Name}},
+	{{- end}}
+{{- end}}
+
+{{- define "WhereFk" }}
+  {{- range $i, $v := . -}}
+	{{if gt $i 0}} AND{{ "\n      " }}{{end}}{{.Field}} = ${{add $i 1}}
+  {{- end}}
+{{- end}}
+
+{{- define "ArgFk" }}
+  {{- range $i, $v := . -}}
+	{{if gt $i 0}}, {{end}}{{.Field}}
+  {{- end}}
+{{- end}}
+
 func (r *{{.Name}}RepositoryImpl) Get(ctx context.Context, {{range .PKeys}}{{.Field}} {{.GoType}}{{if not .Last}}, {{end}}{{end}}) (*{{.Name}}, error) {
   sql := `
     SELECT
-	  	{{- range .Fields }}
-			{{.Field}}{{if not .Last}},{{end}}
-		  {{- end}}
-    FROM {{.Table}}
-    WHERE
-  		{{- range $i, $v := .PKeys }}
-			{{.Field}} = ${{add $i 1}}{{if not .Last}} AND{{end}}
-		  {{- end}}`
+      {{ template "SelectField" .Fields }}
+    FROM {{.Table}} WHERE
+      {{ template "WhereFk" .PKeys }}`
   var obj {{.Name}};
-  err := r.db.QueryRowContext(ctx, sql, {{range .PKeys}}{{.Field}}{{if not .Last}}, {{end}}{{end}}).Scan(
-	  {{- range .Fields }}
-		&obj.{{.Name}},
-		{{- end}}
+  err := r.db.QueryRowContext(ctx, sql, {{ template "ArgFk" .PKeys}}).Scan(
+    {{- template "ScanField" .Fields }}
 	)
   if err != nil {
   	return nil, err
@@ -117,9 +133,7 @@ func (r *{{.Name}}RepositoryImpl) Find(ctx context.Context, filter []{{.Name}}Fi
   }
   sql = `
     SELECT
-	  	{{- range .Fields }}
-			{{.Field}}{{if not .Last}},{{end}}
-		  {{- end}}
+      {{ template "SelectField" .Fields }}
     FROM {{.Table}}`
   if len(qfilter) > 0 {
     sql += "\n  WHERE" + strings.Join(qfilter, " AND\n    ")
@@ -133,9 +147,7 @@ func (r *{{.Name}}RepositoryImpl) Find(ctx context.Context, filter []{{.Name}}Fi
   for rows.Next() {
     var obj {{.Name}};
   	err = rows.Scan(
-		  {{- range .Fields }}
-			&obj.{{.Name}},
-			{{- end}}
+      {{- template "ScanField" .Fields }}
 		)
 		list = append(list, obj)
 	  if err != nil {
@@ -153,12 +165,12 @@ func (r *{{.Name}}RepositoryImpl) Update(ctx context.Context, obj {{.Name}}) err
   defer tx.Rollback()
 	sql := `{{ $i := 1 }}
     UPDATE {{.Table}} SET
-  		{{- range .Updatables }}
-			{{.Field}} = ${{$i}}{{$i = add $i 1}}{{if not .Last}},{{end}}
+  		{{ range $idx, $v := .Updatables -}}
+			{{if gt $idx 0}},{{"\n      "}}{{end}}{{.Field}} = ${{$i}}{{$i = add $i 1}}
 		  {{- end}}
     WHERE
-  		{{- range .PKeys }}
-			{{.Field}} = ${{$i}}{{$i = add $i 1}}{{if not .Last}} AND{{end}}
+  		{{- range $idx, $v := .PKeys }}
+			{{if gt $idx 0}} AND{{"\n      "}}{{end}}{{.Field}} = ${{$i}}{{$i = add $i 1}}
 		  {{- end}}`
   _, err = r.db.ExecContext(ctx, sql,
 	  {{- range .Updatables }}
@@ -180,8 +192,7 @@ func (r *{{.Name}}RepositoryImpl) Update(ctx context.Context, obj {{.Name}}) err
 
 func (r *{{.Name}}RepositoryImpl) Delete(ctx context.Context, {{range .PKeys}}{{.Field}} {{.GoType}}{{if not .Last}}, {{end}}{{end}}) error {
   sql := `
-    DELETE FROM {{.Table}}
-    WHERE
+    DELETE FROM {{.Table}} WHERE
   		{{- range $i, $v := .PKeys }}
 			{{.Field}} = ${{add $i 1}}{{if not .Last}} AND{{end}}
 		  {{- end}}`

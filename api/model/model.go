@@ -41,6 +41,6 @@ func GetRepos() Repos {
 
 func (r *RepositoryImpl) User() UserRepository {
 	return &UserRepositoryImpl{
-		RepositoryImpl: *r,
+		RepositoryImpl: r,
 	}
 }

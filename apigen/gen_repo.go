@@ -38,11 +38,12 @@ func GenRepos(tmpl *template.Template, models map[string]ModelDef, dir string) e
 			for _, fd := range md.Fields {
 				pkey := slices.Contains(md.PKey, fd.ID)
 				df := map[string]any{
-					"Model":  name,
-					"Name":   fd.ID,
-					"Field":  fd.Field,
-					"Type":   fd.Type,
-					"GoType": fd.GoType, "PKey": pkey,
+					"Model":      name,
+					"Name":       fd.ID,
+					"Field":      fd.Field,
+					"Type":       fd.Type,
+					"GoType":     fd.GoType,
+					"PKey":       pkey,
 					"Filtertype": fd.Type == "text" || fd.Type == "autoincrement",
 				}
 				switch fd.Type {
@@ -58,9 +59,6 @@ func GenRepos(tmpl *template.Template, models map[string]ModelDef, dir string) e
 					updatables = append(updatables, maps.Clone(df))
 				}
 			}
-			fields[len(fields)-1]["Last"] = true
-			pkeys[len(pkeys)-1]["Last"] = true
-			updatables[len(updatables)-1]["Last"] = true
 			dmodel["Fields"] = fields
 			dmodel["PKeys"] = pkeys
 			dmodel["Updatables"] = updatables
