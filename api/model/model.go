@@ -36,6 +36,18 @@ func GetRepos() Repos {
 	if err != nil {
 		log.Fatal(err)
 	}
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS app_user (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		email VARCHAR(255) UNIQUE,
+		name VARCHAR(255),
+		salt VARCHAR(255),
+		password VARCHAR(255),
+		token VARCHAR(255)
+	)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return &RepositoryImpl{db: db}
 }
 

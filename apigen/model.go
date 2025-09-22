@@ -21,15 +21,21 @@ type FieldDef struct {
 	GoType string
 }
 
+type UniqueDef struct {
+	ID     string         `yaml:"id"`
+	Fields []string       `yaml:"fields,omitempty"`
+	Extras map[string]any `yaml:",inline"`
+}
+
 type ModelDef struct {
-	Path    string
 	Table   string         `yaml:"table"`
-	Audit   bool           `yaml:"audit"`
-	Version bool           `yaml:"version"`
 	Extras  map[string]any `yaml:",inline"`
 	Fields  []FieldDef     `yaml:"fields"`
-	PKey    []string       `yaml:"pkey"`
-	Uniques []string       `yaml:"uniques"`
+	PKeys   []string       `yaml:"pkeys"`
+	Uniques []UniqueDef    `yaml:"uniques"`
+	ID      string
+	Path    string
+	Package string
 }
 
 func LoadModels(models map[string]ModelDef, dir string) error {
@@ -57,6 +63,12 @@ func LoadModels(models map[string]ModelDef, dir string) error {
 			}
 			for n, mo := range m {
 				mo.Path = path.Dir(name)
+				mo.ID = n
+				if n == "" {
+					mo.Package = "model"
+				} else {
+					mo.Package = path.Base(dir)
+				}
 				for i := range mo.Fields {
 					if mo.Fields[i].Field == "" {
 						mo.Fields[i].Field = toSnakeCase(mo.Fields[i].ID)
@@ -66,7 +78,7 @@ func LoadModels(models map[string]ModelDef, dir string) error {
 						mo.Fields[i].GoType = "int64"
 					case "text":
 						mo.Fields[i].GoType = "string"
-					case "password", "salt":
+					case "password", "salt", "secret":
 						mo.Fields[i].GoType = "string"
 					case "many-to-one":
 						mo.Fields[i].GoType = "*" + mo.Fields[i].Extras["ref"].(string)

@@ -15,11 +15,11 @@ User:
     - id: Password
       type: password
     - id: Token
-      type: password
+      type: secret
       nullable: true
-      filter: false
-      sorted: false
-  pkey:
+  pkeys:
     - ID
   uniques:
-    - Name
+    - id: Name
+      fields:
+        - Name

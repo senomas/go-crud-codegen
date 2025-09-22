@@ -36,6 +36,17 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, "", user.Password)
 	})
 
+	t.Run("Get user Admin byName", func(t *testing.T) {
+		user, err := repos.User().GetByName(ctx, "Admin")
+		assert.NoError(t, err)
+
+		assert.Equal(t, int64(1), user.ID)
+		assert.Equal(t, "admin@example.com", user.Email)
+		assert.Equal(t, "Admin", user.Name)
+		assert.Equal(t, "", user.Salt)
+		assert.Equal(t, "", user.Password)
+	})
+
 	t.Run("Update user Admin", func(t *testing.T) {
 		user := model.User{
 			ID:    1,
@@ -155,13 +166,53 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("Find users like dummy% limit 5", func(t *testing.T) {
 		users, total, err := repos.User().Find(ctx, []model.UserFilter{{
-			Field: model.UserField_Name,
+			Field: model.UserField_Email,
 			Op:    model.FilterOp_Like,
 			Value: "dummy%",
 		}}, nil, 5, 0)
 		assert.NoError(t, err)
 
-		assert.Equal(t, int64(5), total, "total must match")
+		assert.Equal(t, int64(23), total, "total must match")
 		assert.Equal(t, 5, len(users), "len(users) must match")
+		for i, u := range []string{"dummy1@demo.com", "dummy2@demo.com", "dummy3@demo.com", "dummy4@demo.com"} {
+			assert.Equal(t, u, users[i].Email, fmt.Sprintf("email must match at index %d", i))
+		}
+	})
+
+	t.Run("FindOne users like dummy5% sort by name asc", func(t *testing.T) {
+		user, err := repos.User().FindOne(ctx, []model.UserFilter{{
+			Field: model.UserField_Email,
+			Op:    model.FilterOp_Like,
+			Value: "dummy5%",
+		}}, []model.UserSort{{
+			Field: model.UserField_Name,
+			Dir:   model.SortDir_DESC,
+		}})
+		assert.NoError(t, err)
+		assert.NotNil(t, user)
+
+		assert.Equal(t, int64(9), user.ID)
+		assert.Equal(t, "dummy5@demo.com", user.Email)
+		assert.Equal(t, "Dummy 5", user.Name)
+		assert.Equal(t, "", user.Salt)
+		assert.Equal(t, "", user.Password)
+	})
+
+	t.Run("Find users like dummy% sort by name desc limit 5", func(t *testing.T) {
+		users, total, err := repos.User().Find(ctx, []model.UserFilter{{
+			Field: model.UserField_Email,
+			Op:    model.FilterOp_Like,
+			Value: "dummy%",
+		}}, []model.UserSort{{
+			Field: model.UserField_Name,
+			Dir:   model.SortDir_DESC,
+		}}, 5, 0)
+		assert.NoError(t, err)
+
+		assert.Equal(t, int64(23), total, "total must match")
+		assert.Equal(t, 5, len(users), "len(users) must match")
+		for i, u := range []string{"dummy9@demo.com", "dummy8@demo.com", "dummy7@demo.com", "dummy6@demo.com"} {
+			assert.Equal(t, u, users[i].Email, fmt.Sprintf("email must match at index %d", i))
+		}
 	})
 }

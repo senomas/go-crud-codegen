@@ -12,6 +12,8 @@ import (
 type UserRepository interface {
 	Create(ctx context.Context, obj User) (*User, error)
 	Get(ctx context.Context, id int64) (*User, error)
+	GetByName(ctx context.Context, name string) (*User, error)
+	FindOne(ctx context.Context, filter []UserFilter, sort []UserSort) (*User, error)
 	Find(ctx context.Context, filter []UserFilter, sort []UserSort, limit int, offset int64) ([]User, int64, error)
 	Update(ctx context.Context, obj User) error
 	Delete(ctx context.Context, id int64) error
@@ -29,13 +31,13 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 	defer tx.Rollback()
 	sql := `
     INSERT INTO app_user (
-	  	email,
+      email,
       name,
       salt,
       password,
       token
     ) VALUES (
-			$1,
+      $1,
       $2,
       $3,
       $4,
@@ -88,6 +90,127 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 	return &obj, nil
 }
 
+func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User, error) {
+	sql := `
+    SELECT
+      id,
+      email,
+      name,
+      salt,
+      password,
+      token
+    FROM app_user WHERE
+      name = $1`
+	var obj User
+	err := r.db.QueryRowContext(ctx, sql, name).Scan(
+		&obj.ID,
+		&obj.Email,
+		&obj.Name,
+		&obj.Salt,
+		&obj.Password,
+		&obj.Token,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &obj, nil
+}
+
+func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, sort []UserSort) (*User, error) {
+	qfilter := []string{}
+	args := []any{}
+	for _, f := range filter {
+		switch f.Field {
+		case UserField_Email:
+			switch f.Op {
+			case FilterOp_EQ:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, "email = ?")
+			case FilterOp_Like:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, fmt.Sprintf("email LIKE $%d", len(args)))
+			case FilterOp_ILike:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, fmt.Sprintf("email ILIKE $%d", len(args)))
+			default:
+				return nil, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
+			}
+		case UserField_Name:
+			switch f.Op {
+			case FilterOp_EQ:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, "name = ?")
+			case FilterOp_Like:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, fmt.Sprintf("name LIKE $%d", len(args)))
+			case FilterOp_ILike:
+				args = append(args, f.Value)
+				qfilter = append(qfilter, fmt.Sprintf("name ILIKE $%d", len(args)))
+			default:
+				return nil, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported filter field %v", f.Field)
+		}
+	}
+	sql := `
+    SELECT
+      id,
+      email,
+      name,
+      salt,
+      password,
+      token
+    FROM app_user`
+	if len(qfilter) > 0 {
+		sql += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+	}
+	if len(sort) > 0 {
+		sorts := []string{}
+		for _, f := range sort {
+			switch f.Field {
+			case UserField_Email:
+				if f.Dir == SortDir_ASC {
+					sorts = append(sorts, "email ASC")
+				} else {
+					sorts = append(sorts, "email DESC")
+				}
+			case UserField_Name:
+				if f.Dir == SortDir_ASC {
+					sorts = append(sorts, "name ASC")
+				} else {
+					sorts = append(sorts, "name DESC")
+				}
+			}
+		}
+		if len(sorts) > 0 {
+			sql += "\n  ORDER BY " + strings.Join(sorts, ", ")
+		}
+	}
+	sql += "\n  LIMIT 1"
+	rows, err := r.db.QueryContext(ctx, sql, args...)
+	if err != nil {
+		slog.Error("Query list", "sql:", sql, "Error:", err)
+		return nil, err
+	}
+	if rows.Next() {
+		var obj User
+		err = rows.Scan(
+			&obj.ID,
+			&obj.Email,
+			&obj.Name,
+			&obj.Salt,
+			&obj.Password,
+			&obj.Token,
+		)
+		if err != nil {
+			return nil, err
+		}
+		return &obj, nil
+	}
+	return nil, fmt.Errorf("not found")
+}
+
 func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort []UserSort, limit int, offset int64) ([]User, int64, error) {
 	qfilter := []string{}
 	args := []any{}
@@ -121,16 +244,19 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			default:
 				return nil, 0, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
 			}
+		default:
+			return nil, 0, fmt.Errorf("unsupported filter field %v", f.Field)
 		}
 	}
-	sql := `SELECT COUNT(id) FROM app_user`
+	sql := `SELECT COUNT(id)
+  FROM app_user`
 	if len(qfilter) > 0 {
 		sql += " WHERE " + strings.Join(qfilter, " AND ")
 	}
-	slog.Info("Find", "SQL:", sql)
 	total := int64(0)
 	err := r.db.QueryRowContext(ctx, sql, args...).Scan(&total)
 	if err != nil {
+		slog.Error("Query count", "sql:", sql, "Error:", err)
 		return nil, 0, err
 	}
 	sql = `
@@ -143,11 +269,34 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
       token
     FROM app_user`
 	if len(qfilter) > 0 {
-		sql += "\n  WHERE" + strings.Join(qfilter, " AND\n    ")
+		sql += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+	}
+	if len(sort) > 0 {
+		sorts := []string{}
+		for _, f := range sort {
+			switch f.Field {
+			case UserField_Email:
+				if f.Dir == SortDir_ASC {
+					sorts = append(sorts, "email ASC")
+				} else {
+					sorts = append(sorts, "email DESC")
+				}
+			case UserField_Name:
+				if f.Dir == SortDir_ASC {
+					sorts = append(sorts, "name ASC")
+				} else {
+					sorts = append(sorts, "name DESC")
+				}
+			}
+		}
+		if len(sorts) > 0 {
+			sql += "\n  ORDER BY " + strings.Join(sorts, ", ")
+		}
 	}
 	sql += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
 	rows, err := r.db.QueryContext(ctx, sql, args...)
 	if err != nil {
+		slog.Error("Query list", "sql:", sql, "Error:", err)
 		return nil, 0, err
 	}
 	list := []User{}
@@ -177,17 +326,29 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
 	defer tx.Rollback()
 	sql := `
     UPDATE app_user SET
-  		email = $1,
-      name = $2
+      email = $1,
+      name = $2,
+      token = $3
     WHERE
-			id = $3`
-	_, err = r.db.ExecContext(ctx, sql,
+      id = $4`
+	res, err := r.db.ExecContext(ctx, sql,
 		obj.Email,
 		obj.Name,
+		obj.Token,
 		obj.ID,
 	)
 	if err != nil {
 		return err
+	}
+	ra, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if ra == 0 {
+		return fmt.Errorf("no rows affected")
+	}
+	if ra != 1 {
+		return fmt.Errorf("invalid rows affected (%d)", ra)
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -199,10 +360,20 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
 func (r *UserRepositoryImpl) Delete(ctx context.Context, id int64) error {
 	sql := `
     DELETE FROM app_user WHERE
-			id = $1 AND`
-	_, err := r.db.ExecContext(ctx, sql, id)
+      id = $1`
+	res, err := r.db.ExecContext(ctx, sql, id)
 	if err != nil {
 		return err
+	}
+	ra, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if ra == 0 {
+		return fmt.Errorf("no rows affected")
+	}
+	if ra != 1 {
+		return fmt.Errorf("invalid rows affected (%d)", ra)
 	}
 	return nil
 }

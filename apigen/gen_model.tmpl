@@ -2,27 +2,28 @@
 
 package {{.Package}}
 
-type {{.Name}} struct {
+{{$Model := .}}
+type {{.ID}} struct {
 	{{range .Fields -}}
-	{{.Name}}       {{.Type}}   `json:"{{.Field}}"`
+	{{.ID}}       {{.GoType}}   `json:"{{.Field}}"`
 	{{end}}
 }
 
-type {{.Name}}Field string
+type {{.ID}}Field string
 
 const (
 	{{range .Fields -}}
-	{{.Model}}Field_{{.Name}}       {{.Model}}Field = "{{.Field}}"
+	{{$Model.ID}}Field_{{.ID}}       {{$Model.ID}}Field = "{{.Field}}"
 	{{end}}
 )
 
-type {{.Name}}Sort struct {
-	Field {{.Name}}Field  `json:"field"`
+type {{.ID}}Sort struct {
+	Field {{.ID}}Field  `json:"field"`
 	Dir   SortDir         `json:"dir"`
 }
 
-type {{.Name}}Filter struct {
-	Field {{.Name}}Field  `json:"field"`
+type {{.ID}}Filter struct {
+	Field {{.ID}}Field  `json:"field"`
 	Op    FilterOp   `json:"op"`
 	Value string     `json:"value"`
 }
