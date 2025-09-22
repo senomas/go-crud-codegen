@@ -27,8 +27,53 @@ func Templates() *template.Template {
 			return m, nil
 		},
 		"snakeCase": toSnakeCase,
-		"inSlices": func(pkeys []string, id string) bool {
-			return slices.Contains(pkeys, id)
+		"inSlices": func(v any, k string) bool {
+			if s, ok := v.([]string); ok {
+				return slices.Contains(s, k)
+			} else if s, ok := v.([]any); ok {
+				for _, sv := range s {
+					if sv == k {
+						return true
+					}
+				}
+				return false
+			}
+			fmt.Printf("inSlices: v is not []string: %T\n", v)
+			return false
+		},
+		"goType": func(fo FieldDef) string {
+			vt := fo.Type
+			switch fo.Type {
+			case "autoincrement":
+				vt = "int64"
+			case "text":
+				vt = "string"
+			case "password", "salt", "secret":
+				vt = "string"
+			case "many-to-one":
+				vt = "*" + fo.Extras["ref"].(string)
+			}
+			if fo.Null {
+				vt = "*" + vt
+			}
+			return vt
+		},
+		"goSqlNullType": func(fo FieldDef) string {
+			vt := fo.Type
+			switch fo.Type {
+			case "autoincrement":
+				vt = "sql.NullInt64"
+			case "text":
+				vt = "sql.NullString"
+			case "password", "salt", "secret":
+				vt = "sql.NullString"
+			case "many-to-one":
+				vt = "*" + fo.Extras["ref"].(string)
+			}
+			if fo.Null {
+				vt = "*" + vt
+			}
+			return vt
 		},
 		"isPk": func(field FieldDef, model ModelDef) bool {
 			return slices.Contains(model.PKeys, field.ID)

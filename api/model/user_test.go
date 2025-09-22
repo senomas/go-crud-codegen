@@ -85,6 +85,9 @@ func TestUserCrud(t *testing.T) {
 		user := model.User{
 			Email: "staff@demo.com",
 			Name:  "Staff",
+			CreatedBy: &model.User{
+				ID: 1,
+			},
 		}
 
 		res, err := repos.User().Create(ctx, user)

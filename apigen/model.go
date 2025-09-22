@@ -18,7 +18,6 @@ type FieldDef struct {
 	Type   string         `yaml:"type"`
 	Null   bool           `yaml:"nullable,omitempty"`
 	Extras map[string]any `yaml:",inline"`
-	GoType string
 }
 
 type UniqueDef struct {
@@ -72,21 +71,6 @@ func LoadModels(models map[string]ModelDef, dir string) error {
 				for i := range mo.Fields {
 					if mo.Fields[i].Field == "" {
 						mo.Fields[i].Field = toSnakeCase(mo.Fields[i].ID)
-					}
-					switch mo.Fields[i].Type {
-					case "autoincrement":
-						mo.Fields[i].GoType = "int64"
-					case "text":
-						mo.Fields[i].GoType = "string"
-					case "password", "salt", "secret":
-						mo.Fields[i].GoType = "string"
-					case "many-to-one":
-						mo.Fields[i].GoType = "*" + mo.Fields[i].Extras["ref"].(string)
-					default:
-						mo.Fields[i].GoType = "any"
-					}
-					if mo.Fields[i].Null {
-						mo.Fields[i].GoType = "*" + mo.Fields[i].GoType
 					}
 				}
 				models[n] = mo

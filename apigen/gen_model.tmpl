@@ -5,7 +5,7 @@ package {{.Package}}
 {{$Model := .}}
 type {{.ID}} struct {
 	{{range .Fields -}}
-	{{.ID}}       {{.GoType}}   `json:"{{.Field}}"`
+	{{.ID}}       {{goType .}}   `json:"{{.Field}}"`
 	{{end}}
 }
 

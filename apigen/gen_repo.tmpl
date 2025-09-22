@@ -10,13 +10,13 @@ import (
 {{- define "ParamFk" -}}
   {{$Model := . -}}
   {{ $idx := 0}}{{range .Fields }}{{if (isPk . $Model) -}}
-    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType}}
+    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{goType .}}
   {{- end}}{{end}}
 {{- end -}}
 
 {{- define "ParamUnique" -}}
   {{- $p := .p}}{{ $idx := 0}}{{range .m.Fields }}{{if (inSlices $p.Fields .ID) -}}
-    {{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType -}}
+    {{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{goType . -}}
   {{- end}}{{end}}
 {{- end}}
 
@@ -42,7 +42,7 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
     return nil, err
   }
   defer tx.Rollback()
-  sql := `
+  qry := `
     INSERT INTO {{.Table}} (
       {{ $idx := 0 }}{{- range .Fields }}{{if not (eq .Type "autoincrement") -}}
       {{if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{.Field}}
@@ -52,10 +52,27 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
       {{if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}${{$i}}
       {{- end}}{{end}}
     )`
-  res, err := r.db.ExecContext(ctx, sql,
-    {{- range .Fields }}{{if not (eq .Type "autoincrement") }}
-    obj.{{.ID}},
-    {{- end}}{{end}}
+  {{- range .Fields -}}{{$fb := . -}}
+    {{- if eq .Type "many-to-one" }}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
+        {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} *{{goType .}}
+        if obj.{{$fb.ID}} != nil {
+          obj{{$fb.ID}}_{{.ID}} = &obj.{{$fb.ID}}.{{.ID}}
+        }
+      {{- end}}{{end}}
+    {{- end}}
+  {{- end}}
+  res, err := r.db.ExecContext(ctx, qry,
+    {{- range .Fields -}}{{$f := . -}}
+      {{- if eq .Type "autoincrement" -}}
+      {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+        {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+          obj{{$fb.ID}}_{{.ID}},
+        {{- end}}{{end}}
+      {{-  else }}
+        obj.{{.ID}},
+      {{- end}}
+    {{- end}}
   )
   if err != nil {
     return nil, err
@@ -78,8 +95,28 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
 {{- end}}
 
 {{- define "ScanField" }}
-  {{- range .Fields }}
-    &obj.{{.ID}},
+  {{- $Model := . }}
+  {{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+        &obj{{$fb.ID}}_{{.ID}},
+      {{- end}}{{end}}
+    {{-  else }}
+      &obj.{{.ID}},
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "ScanFieldRef" -}}
+  {{- $Model := . -}}
+  {{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+        if obj{{$fb.ID}}_{{.ID}}.Valid {
+        	obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
+        }
+      {{- end}}{{end}}
+    {{- end}}
   {{- end}}
 {{- end}}
 
@@ -98,18 +135,26 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
 {{- end}}
 
 func (r *{{.ID}}RepositoryImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (*{{.ID}}, error) {
-  sql := `
+  qry := `
     SELECT
       {{ template "SelectField" . }}
     FROM {{.Table}} WHERE
       {{ template "WhereFk" . }}`
   var obj {{.ID}};
-  err := r.db.QueryRowContext(ctx, sql, {{ template "ArgFk" . }}).Scan(
+  {{- range .Fields -}}{{$fb := . -}}
+    {{- if eq .Type "many-to-one" }}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
+        {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
+      {{- end}}{{end}}
+    {{- end}}
+  {{- end}}
+  err := r.db.QueryRowContext(ctx, qry, {{ template "ArgFk" . }}).Scan(
     {{- template "ScanField" . }}
   )
   if err != nil {
     return nil, err
   }
+  {{- template "ScanFieldRef" .}}
   return &obj, nil
 }
 
@@ -129,18 +174,26 @@ func (r *{{.ID}}RepositoryImpl) Get(ctx context.Context, {{template "ParamFk" . 
 
 {{range .Uniques -}}
 func (r *{{$Model.ID}}RepositoryImpl) GetBy{{.ID}}(ctx context.Context, {{template "ParamUnique" (dict "m" $Model "p" .) }}) (*{{$Model.ID}}, error) {
-  sql := `
+  qry := `
     SELECT
       {{ template "SelectField" $Model }}
     FROM {{$Model.Table}} WHERE
       {{ template "WhereUnique" (dict "m" $Model "p" .) }}`
   var obj {{$Model.ID}};
-  err := r.db.QueryRowContext(ctx, sql, {{ template "ArgUnique" (dict "m" $Model "p" .) }}).Scan(
+  {{- range $Model.Fields -}}{{$fb := . -}}
+    {{- if eq .Type "many-to-one" }}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
+        {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
+      {{- end}}{{end}}
+    {{- end}}
+  {{- end}}
+  err := r.db.QueryRowContext(ctx, qry, {{ template "ArgUnique" (dict "m" $Model "p" .) }}).Scan(
     {{- template "ScanField" $Model }}
   )
   if err != nil {
     return nil, err
   }
+  {{- template "ScanFieldRef" $Model}}
   return &obj, nil
 }
 {{- end}}
@@ -176,12 +229,12 @@ func (r *{{.ID}}RepositoryImpl) FindOne(ctx context.Context, filter []{{.ID}}Fil
   qfilter := []string{}
   args := []any{}
   {{template "FilterOp" (dict "m" . "Res" "nil, " )}}
-  sql := `
+  qry := `
     SELECT
       {{ template "SelectField" . }}
     FROM {{.Table}}`
   if len(qfilter) > 0 {
-    sql += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+    qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
   }
   if len(sort) > 0 {
     sorts := []string{}
@@ -197,23 +250,31 @@ func (r *{{.ID}}RepositoryImpl) FindOne(ctx context.Context, filter []{{.ID}}Fil
       {{end}}{{end}}}
     }
     if len(sorts) > 0 {
-      sql += "\n  ORDER BY " + strings.Join(sorts, ", ")
+      qry += "\n  ORDER BY " + strings.Join(sorts, ", ")
     }
   }
-  sql += "\n  LIMIT 1"
-  rows, err := r.db.QueryContext(ctx, sql, args...)
+  qry += "\n  LIMIT 1"
+  rows, err := r.db.QueryContext(ctx, qry, args...)
   if err != nil {
-    slog.Error("Query list", "sql:", sql, "Error:", err)
+    slog.Error("Query list", "qry:", qry, "Error:", err)
     return nil, err
   }
   if rows.Next() {
     var obj {{.ID}};
+    {{- range .Fields -}}{{$fb := . -}}
+      {{- if eq .Type "many-to-one" }}
+        {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
+          {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
+        {{- end}}{{end}}
+      {{- end}}
+    {{- end}}
     err = rows.Scan(
       {{- template "ScanField" . }}
     )
     if err != nil {
       return nil, err
     }
+    {{- template "ScanFieldRef" .}}
     return &obj, nil
   }
   return nil, fmt.Errorf("not found")
@@ -232,22 +293,22 @@ func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter
   qfilter := []string{}
   args := []any{}
   {{template "FilterOp" (dict "m" . "Res" "nil, 0, " )}}
-  sql := `{{template "QueryFindCount" .}}`
+  qry := `{{template "QueryFindCount" .}}`
   if len(qfilter) > 0 {
-    sql += " WHERE " + strings.Join(qfilter, " AND ")
+    qry += " WHERE " + strings.Join(qfilter, " AND ")
   }
   total := int64(0)
-  err := r.db.QueryRowContext(ctx, sql, args...).Scan(&total)
+  err := r.db.QueryRowContext(ctx, qry, args...).Scan(&total)
   if err != nil {
-    slog.Error("Query count", "sql:", sql, "Error:", err)
+    slog.Error("Query count", "qry:", qry, "Error:", err)
     return nil, 0, err
   }
-  sql = `
+  qry = `
     SELECT
       {{ template "SelectField" . }}
     FROM {{.Table}}`
   if len(qfilter) > 0 {
-    sql += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+    qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
   }
   if len(sort) > 0 {
     sorts := []string{}
@@ -263,25 +324,33 @@ func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter
       {{end}}{{end}}}
     }
     if len(sorts) > 0 {
-      sql += "\n  ORDER BY " + strings.Join(sorts, ", ")
+      qry += "\n  ORDER BY " + strings.Join(sorts, ", ")
     }
   }
-  sql += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
-  rows, err := r.db.QueryContext(ctx, sql, args...)
+  qry += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
+  rows, err := r.db.QueryContext(ctx, qry, args...)
   if err != nil {
-    slog.Error("Query list", "sql:", sql, "Error:", err)
+    slog.Error("Query list", "qry:", qry, "Error:", err)
     return nil, 0, err
   }
   list := []{{.ID}}{};
   for rows.Next() {
     var obj {{.ID}};
+    {{- range .Fields -}}{{$fb := . -}}
+      {{- if eq .Type "many-to-one" }}
+        {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
+          {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
+        {{- end}}{{end}}
+      {{- end}}
+    {{- end}}
     err = rows.Scan(
       {{- template "ScanField" . }}
     )
-    list = append(list, obj)
     if err != nil {
       return nil, total, err
     }
+    {{- template "ScanFieldRef" .}}
+    list = append(list, obj)
   }
   return list, total, nil
 }
@@ -292,7 +361,7 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}) error {
     return err
   }
   defer tx.Rollback()
-  sql := `{{ $idx := 1 }}
+  qry := `{{ $idx := 1 }}
     UPDATE {{.Table}} SET
       {{ range .Fields -}}{{if isUpdatable . $Model -}}
       {{if gt $idx 1}},{{"\n      "}}{{end}}{{.Field}} = ${{$idx}}{{$idx = add $idx 1}}
@@ -301,7 +370,7 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}) error {
       {{$fidx := $idx}}{{ range .Fields -}}{{if isPk . $Model -}}
       {{if gt $idx $fidx}},{{"\n      "}}{{end}}{{.Field}} = ${{$idx}}{{$idx = add $idx 1 -}}
       {{- end}}{{- end}}`
-  res, err := r.db.ExecContext(ctx, sql,
+  res, err := r.db.ExecContext(ctx, qry,
     {{- range .Fields -}}{{if isUpdatable . $Model -}}
       {{"\n    "}}obj.{{.ID}},
     {{- end}}{{end}}
@@ -330,10 +399,10 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}) error {
 }
 
 func (r *{{.ID}}RepositoryImpl) Delete(ctx context.Context, {{template "ParamFk" . }}) error {
-  sql := `
+  qry := `
     DELETE FROM {{.Table}} WHERE
       {{ template "WhereFk" . }}`
-  res, err := r.db.ExecContext(ctx, sql, {{ template "ArgFk" .}})
+  res, err := r.db.ExecContext(ctx, qry, {{ template "ArgFk" .}})
   if err != nil {
     return err
   }

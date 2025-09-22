@@ -4,6 +4,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -29,26 +30,33 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 		return nil, err
 	}
 	defer tx.Rollback()
-	sql := `
+	qry := `
     INSERT INTO app_user (
       email,
       name,
       salt,
       password,
-      token
+      token,
+      created_by
     ) VALUES (
       $1,
       $2,
       $3,
       $4,
-      $5
+      $5,
+      $6
     )`
-	res, err := r.db.ExecContext(ctx, sql,
+	var objCreatedBy_ID *int64
+	if obj.CreatedBy != nil {
+		objCreatedBy_ID = &obj.CreatedBy.ID
+	}
+	res, err := r.db.ExecContext(ctx, qry,
 		obj.Email,
 		obj.Name,
 		obj.Salt,
 		obj.Password,
 		obj.Token,
+		objCreatedBy_ID,
 	)
 	if err != nil {
 		return nil, err
@@ -65,53 +73,65 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 }
 
 func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
-	sql := `
+	qry := `
     SELECT
       id,
       email,
       name,
       salt,
       password,
-      token
+      token,
+      created_by
     FROM app_user WHERE
       id = $1`
 	var obj User
-	err := r.db.QueryRowContext(ctx, sql, id).Scan(
+	var objCreatedBy_ID sql.NullInt64
+	err := r.db.QueryRowContext(ctx, qry, id).Scan(
 		&obj.ID,
 		&obj.Email,
 		&obj.Name,
 		&obj.Salt,
 		&obj.Password,
 		&obj.Token,
+		&objCreatedBy_ID,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if objCreatedBy_ID.Valid {
+		obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
 	}
 	return &obj, nil
 }
 
 func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User, error) {
-	sql := `
+	qry := `
     SELECT
       id,
       email,
       name,
       salt,
       password,
-      token
+      token,
+      created_by
     FROM app_user WHERE
       name = $1`
 	var obj User
-	err := r.db.QueryRowContext(ctx, sql, name).Scan(
+	var objCreatedBy_ID sql.NullInt64
+	err := r.db.QueryRowContext(ctx, qry, name).Scan(
 		&obj.ID,
 		&obj.Email,
 		&obj.Name,
 		&obj.Salt,
 		&obj.Password,
 		&obj.Token,
+		&objCreatedBy_ID,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if objCreatedBy_ID.Valid {
+		obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
 	}
 	return &obj, nil
 }
@@ -153,17 +173,18 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			return nil, fmt.Errorf("unsupported filter field %v", f.Field)
 		}
 	}
-	sql := `
+	qry := `
     SELECT
       id,
       email,
       name,
       salt,
       password,
-      token
+      token,
+      created_by
     FROM app_user`
 	if len(qfilter) > 0 {
-		sql += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+		qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
 	}
 	if len(sort) > 0 {
 		sorts := []string{}
@@ -184,17 +205,18 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			}
 		}
 		if len(sorts) > 0 {
-			sql += "\n  ORDER BY " + strings.Join(sorts, ", ")
+			qry += "\n  ORDER BY " + strings.Join(sorts, ", ")
 		}
 	}
-	sql += "\n  LIMIT 1"
-	rows, err := r.db.QueryContext(ctx, sql, args...)
+	qry += "\n  LIMIT 1"
+	rows, err := r.db.QueryContext(ctx, qry, args...)
 	if err != nil {
-		slog.Error("Query list", "sql:", sql, "Error:", err)
+		slog.Error("Query list", "qry:", qry, "Error:", err)
 		return nil, err
 	}
 	if rows.Next() {
 		var obj User
+		var objCreatedBy_ID sql.NullInt64
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
@@ -202,9 +224,13 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			&obj.Salt,
 			&obj.Password,
 			&obj.Token,
+			&objCreatedBy_ID,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if objCreatedBy_ID.Valid {
+			obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
 		}
 		return &obj, nil
 	}
@@ -248,28 +274,29 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			return nil, 0, fmt.Errorf("unsupported filter field %v", f.Field)
 		}
 	}
-	sql := `SELECT COUNT(id)
+	qry := `SELECT COUNT(id)
   FROM app_user`
 	if len(qfilter) > 0 {
-		sql += " WHERE " + strings.Join(qfilter, " AND ")
+		qry += " WHERE " + strings.Join(qfilter, " AND ")
 	}
 	total := int64(0)
-	err := r.db.QueryRowContext(ctx, sql, args...).Scan(&total)
+	err := r.db.QueryRowContext(ctx, qry, args...).Scan(&total)
 	if err != nil {
-		slog.Error("Query count", "sql:", sql, "Error:", err)
+		slog.Error("Query count", "qry:", qry, "Error:", err)
 		return nil, 0, err
 	}
-	sql = `
+	qry = `
     SELECT
       id,
       email,
       name,
       salt,
       password,
-      token
+      token,
+      created_by
     FROM app_user`
 	if len(qfilter) > 0 {
-		sql += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+		qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
 	}
 	if len(sort) > 0 {
 		sorts := []string{}
@@ -290,18 +317,19 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			}
 		}
 		if len(sorts) > 0 {
-			sql += "\n  ORDER BY " + strings.Join(sorts, ", ")
+			qry += "\n  ORDER BY " + strings.Join(sorts, ", ")
 		}
 	}
-	sql += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
-	rows, err := r.db.QueryContext(ctx, sql, args...)
+	qry += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
+	rows, err := r.db.QueryContext(ctx, qry, args...)
 	if err != nil {
-		slog.Error("Query list", "sql:", sql, "Error:", err)
+		slog.Error("Query list", "qry:", qry, "Error:", err)
 		return nil, 0, err
 	}
 	list := []User{}
 	for rows.Next() {
 		var obj User
+		var objCreatedBy_ID sql.NullInt64
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
@@ -309,11 +337,15 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			&obj.Salt,
 			&obj.Password,
 			&obj.Token,
+			&objCreatedBy_ID,
 		)
-		list = append(list, obj)
 		if err != nil {
 			return nil, total, err
 		}
+		if objCreatedBy_ID.Valid {
+			obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
+		}
+		list = append(list, obj)
 	}
 	return list, total, nil
 }
@@ -324,17 +356,19 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
 		return err
 	}
 	defer tx.Rollback()
-	sql := `
+	qry := `
     UPDATE app_user SET
       email = $1,
       name = $2,
-      token = $3
+      token = $3,
+      created_by = $4
     WHERE
-      id = $4`
-	res, err := r.db.ExecContext(ctx, sql,
+      id = $5`
+	res, err := r.db.ExecContext(ctx, qry,
 		obj.Email,
 		obj.Name,
 		obj.Token,
+		obj.CreatedBy,
 		obj.ID,
 	)
 	if err != nil {
@@ -358,10 +392,10 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
 }
 
 func (r *UserRepositoryImpl) Delete(ctx context.Context, id int64) error {
-	sql := `
+	qry := `
     DELETE FROM app_user WHERE
       id = $1`
-	res, err := r.db.ExecContext(ctx, sql, id)
+	res, err := r.db.ExecContext(ctx, qry, id)
 	if err != nil {
 		return err
 	}

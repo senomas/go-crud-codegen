@@ -3,23 +3,25 @@
 package model
 
 type User struct {
-	ID       int64   `json:"id"`
-	Email    string  `json:"email"`
-	Name     string  `json:"name"`
-	Salt     string  `json:"salt"`
-	Password string  `json:"password"`
-	Token    *string `json:"token"`
+	ID        int64   `json:"id"`
+	Email     string  `json:"email"`
+	Name      string  `json:"name"`
+	Salt      string  `json:"salt"`
+	Password  string  `json:"password"`
+	Token     *string `json:"token"`
+	CreatedBy *User   `json:"created_by"`
 }
 
 type UserField string
 
 const (
-	UserField_ID       UserField = "id"
-	UserField_Email    UserField = "email"
-	UserField_Name     UserField = "name"
-	UserField_Salt     UserField = "salt"
-	UserField_Password UserField = "password"
-	UserField_Token    UserField = "token"
+	UserField_ID        UserField = "id"
+	UserField_Email     UserField = "email"
+	UserField_Name      UserField = "name"
+	UserField_Salt      UserField = "salt"
+	UserField_Password  UserField = "password"
+	UserField_Token     UserField = "token"
+	UserField_CreatedBy UserField = "created_by"
 )
 
 type UserSort struct {

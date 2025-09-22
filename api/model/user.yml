@@ -17,6 +17,11 @@ User:
     - id: Token
       type: secret
       nullable: true
+    - id: CreatedBy
+      type: many-to-one
+      ref: User
+      refKeys:
+        - ID
   pkeys:
     - ID
   uniques:
