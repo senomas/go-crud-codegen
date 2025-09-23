@@ -83,6 +83,7 @@ func TestUserCrud(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), user.ID)
+		assert.Equal(t, int64(2), user.Version)
 		assert.Equal(t, "admin@demo.com", user.Email)
 		assert.Equal(t, "Admin", user.Name)
 		assert.Equal(t, "", user.Salt)

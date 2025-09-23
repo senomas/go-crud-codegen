@@ -31,6 +31,7 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 	tx, err = r.db.BeginTx(ctx, nil)
 	txNew = true
 	defer tx.Rollback()
+	obj.Version = 1
 	qry := `
     INSERT INTO app_user (
       email,
@@ -535,34 +536,53 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User, fields []User
 	defer tx.Rollback()
 	args := []any{}
 	qry := `UPDATE app_user SET`
-	nf := false
+	if len(args) > 0 {
+		qry += ","
+	}
+	args = append(args, obj.Version+1)
+	qry += fmt.Sprintf("  version = $%d", len(args))
 	for _, f := range fields {
-		if nf {
-			qry += ",\n      "
-		} else {
-			qry += "\n      "
-			nf = true
-		}
 		switch f {
 		case UserField_Email:
+			if len(args) > 0 {
+				qry += ","
+			}
 			args = append(args, obj.Email)
 			qry += fmt.Sprintf("  email = $%d", len(args))
 		case UserField_Name:
+			if len(args) > 0 {
+				qry += ","
+			}
 			args = append(args, obj.Name)
 			qry += fmt.Sprintf("  name = $%d", len(args))
 		case UserField_Token:
+			if len(args) > 0 {
+				qry += ","
+			}
 			args = append(args, obj.Token)
 			qry += fmt.Sprintf("  token = $%d", len(args))
 		case UserField_CreatedBy:
+			if len(args) > 0 {
+				qry += ","
+			}
 			args = append(args, obj.CreatedBy)
 			qry += fmt.Sprintf("  created_by = $%d", len(args))
 		case UserField_CreatedAt:
+			if len(args) > 0 {
+				qry += ","
+			}
 			args = append(args, obj.CreatedAt)
 			qry += fmt.Sprintf("  created_at = $%d", len(args))
 		case UserField_UpdatedBy:
+			if len(args) > 0 {
+				qry += ","
+			}
 			args = append(args, obj.UpdatedBy)
 			qry += fmt.Sprintf("  updated_by = $%d", len(args))
 		case UserField_UpdatedAt:
+			if len(args) > 0 {
+				qry += ","
+			}
 			args = append(args, obj.UpdatedAt)
 			qry += fmt.Sprintf("  updated_at = $%d", len(args))
 		default:

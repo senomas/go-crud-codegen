@@ -43,6 +43,11 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   tx, err = r.db.BeginTx(ctx, nil)
   txNew = true
   defer tx.Rollback()
+  {{- range .Fields -}}
+    {{- if eq .Type "version" -}}
+      {{- "\n  "}}obj.{{.ID}} = 1
+    {{- end}}
+  {{- end}}
   qry := `
     INSERT INTO {{.Table}} (
       {{ $idx := 0 }}{{- range .Fields }}{{if not (eq .Type "autoincrement") -}}
@@ -409,17 +414,18 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}, fields 
   defer tx.Rollback()
   args := []any{}
   qry := `UPDATE {{.Table}} SET`
-  nf := false
+  {{- range .Fields -}}
+    {{- if eq .Type "version" -}}
+      {{- "\n  "}}if len(args) > 0 { qry += "," }
+      {{- "\n  "}}args = append(args, obj.{{.ID}} + 1)
+      {{- "\n  "}}qry += fmt.Sprintf("  {{.Field}} = $%d", len(args))
+    {{- end}}
+  {{- end}}
   for _, f := range fields {
-    if nf {
-      qry += ",\n      "
-    } else {
-      qry += "\n      "
-      nf = true
-    }
     switch f {
     {{- range .Fields}}{{if isUpdatable . $Model }}
     case {{$Model.ID}}Field_{{.ID}}:
+      if len(args) > 0 { qry += "," }
       args = append(args, obj.{{.ID}})
       qry += fmt.Sprintf("  {{.Field}} = $%d", len(args))
     {{- end}}{{end}}
