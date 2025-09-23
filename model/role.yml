@@ -1,5 +1,5 @@
 Role:
-  mutation: "0002"
+  seq: 2
   table: app_role
   fields:
     - id: ID

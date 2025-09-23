@@ -6,11 +6,11 @@ SHELL := /bin/bash
 RUN_TARGET ?= test
 
 test: build FORCE
-	@cd api && rm -rf app.db && go test -v --failfast ./...
+	rm -rf app.db
+	go test -v --failfast ./...
 
 build: FORCE
-	@cd apigen && go run .
-	@cd api && ~/go/bin/goimports -w . 2>/dev/null || go install golang.org/x/tools/cmd/goimports@latest && ~/go/bin/goimports -w .
-	@cd api && gofmt -s -w .
-
+	go run .
+	~/go/bin/goimports -w . 2>/dev/null || go install golang.org/x/tools/cmd/goimports@latest && ~/go/bin/goimports -w .
+	gofmt -s -w .
 

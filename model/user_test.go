@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"hanoman.co.id/mwui/api/model"
+	"hanoman.co.id/goapigen/model"
 )
 
 func TestUserCrud(t *testing.T) {
@@ -18,11 +18,45 @@ func TestUserCrud(t *testing.T) {
 	createTime1 := time.Now().Add(-time.Hour * 24).Add(1 * time.Second)
 	updateTime := time.Now().Add(-time.Hour * 24).Add(5 * time.Minute)
 
+	t.Run("Create role Admin", func(t *testing.T) {
+		role := model.Role{
+			Name: "Admin",
+		}
+
+		res, err := repos.Role().Create(ctx, role)
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, int64(1), res.ID)
+	})
+
+	t.Run("Create role Opr", func(t *testing.T) {
+		role := model.Role{
+			Name: "Opr",
+		}
+
+		res, err := repos.Role().Create(ctx, role)
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, int64(2), res.ID)
+	})
+
+	t.Run("Create role Staff", func(t *testing.T) {
+		role := model.Role{
+			Name: "Staf",
+		}
+
+		res, err := repos.Role().Create(ctx, role)
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, int64(3), res.ID)
+	})
+
 	t.Run("Create user Admin", func(t *testing.T) {
 		user := model.User{
 			Version:   1,
 			Email:     "admin@example.com",
 			Name:      "Admin",
+			Roles:     []model.Role{{ID: 1}, {ID: 2}},
 			CreatedAt: createTime,
 		}
 
@@ -41,6 +75,9 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, "Admin", user.Name)
 		assert.Equal(t, "", user.Salt)
 		assert.Equal(t, "", user.Password)
+		assert.Equal(t, 2, len(user.Roles))
+		assert.Equal(t, "Admin", user.Roles[0].Name)
+		assert.Equal(t, "Opr", user.Roles[1].Name)
 	})
 
 	t.Run("Get user Admin byName", func(t *testing.T) {

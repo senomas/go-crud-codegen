@@ -30,6 +30,7 @@ const (
 
 type Repos interface {
 	User() UserRepository
+	Role() RoleRepository
 }
 
 type RepositoryImpl struct {
@@ -42,7 +43,7 @@ func GetRepos() Repos {
 	if err != nil {
 		log.Fatal(err)
 	}
-	dir := "../migration"
+	dir := "../migrations"
 	ents, err := os.ReadDir(dir)
 	if err != nil {
 		log.Fatal(err)
@@ -69,10 +70,4 @@ func GetRepos() Repos {
 	}
 
 	return &RepositoryImpl{db: db}
-}
-
-func (r *RepositoryImpl) User() UserRepository {
-	return &UserRepositoryImpl{
-		RepositoryImpl: r,
-	}
 }

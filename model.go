@@ -83,14 +83,11 @@ func LoadModels(models map[string]ModelDef, dir string) error {
 
 func toSnakeCase(s string) string {
 	var b strings.Builder
-	b.Grow(len(s) + 4) // small buffer growth for underscores
+	b.Grow(len(s) + 4)
 
 	for i, r := range s {
 		if unicode.IsUpper(r) {
-			// add underscore before uppercase if not first char
-			// and previous char isn't underscore
 			if i > 0 && s[i-1] != '_' {
-				// also avoid double underscore if next is uppercase too
 				b.WriteRune('_')
 			}
 			b.WriteRune(unicode.ToLower(r))

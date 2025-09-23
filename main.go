@@ -1,0 +1,97 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"log"
+	"os"
+	"path"
+	"regexp"
+	"text/template"
+)
+
+func main() {
+	models := make(map[string]ModelDef)
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	dir = path.Join(dir, "./model")
+	fmt.Printf("path %s\n", dir)
+	err = LoadModels(models, dir)
+	if err != nil {
+		panic(err)
+	}
+	tmpl := Templates()
+
+	tmpls := []*template.Template{
+		tmpl.Lookup("gen_model.tmpl"),
+		tmpl.Lookup("gen_repo.tmpl"),
+		tmpl.Lookup("gen_sql.tmpl"),
+	}
+	for name, md := range models {
+		if md.Extras == nil {
+			md.Extras = make(map[string]any)
+		}
+		md.Extras["model"] = func(id string) (*ModelDef, error) {
+			if m, ok := models[id]; ok {
+				return &m, nil
+			}
+			return nil, fmt.Errorf("model %s not found", id)
+		}
+		re := regexp.MustCompile(`^(?://|--)\s+FILE(?:-([0-9a-fA-F]+))?:\s*(.+)$`)
+		for _, t := range tmpls {
+			var bb bytes.Buffer
+			err = t.Execute(&bb, md)
+			if err != nil {
+				log.Fatalf("Executing template for model %s: %v", name, err)
+			}
+
+			scanner := bufio.NewScanner(&bb)
+			if scanner.Scan() {
+				ln := scanner.Text()
+				m := re.FindStringSubmatch(ln)
+				if m != nil {
+					if m[1] == "" {
+						fmt.Printf("Generating file %s\n", m[2])
+						f, err := os.Create(m[2])
+						if err != nil {
+							log.Fatal(err)
+						}
+						defer f.Close()
+
+						for scanner.Scan() {
+							f.WriteString(scanner.Text() + "\n")
+						}
+					} else {
+						fmt.Printf("Generating file %s\n", m[2])
+						f := []*os.File{nil}
+						f[0], err = os.Create(m[2])
+						if err != nil {
+							log.Fatal(err)
+						}
+						defer f[0].Close()
+
+						for scanner.Scan() {
+							ln = scanner.Text()
+							ms := re.FindStringSubmatch(ln)
+							if ms != nil && ms[1] == m[1] {
+								f[0].Close()
+								fmt.Printf("Generating file %s\n", ms[2])
+								f[0], err = os.Create(ms[2])
+								if err != nil {
+									log.Fatal(err)
+								}
+							} else {
+								f[0].WriteString(scanner.Text() + "\n")
+							}
+						}
+					}
+				} else {
+					log.Fatalf("First line of generated content does not specify file name")
+				}
+			}
+		}
+	}
+}

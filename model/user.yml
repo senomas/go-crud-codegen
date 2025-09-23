@@ -1,5 +1,5 @@
 User:
-  mutation: "0001"
+  seq: 1
   table: app_user
   fields:
     - id: ID
@@ -21,7 +21,7 @@ User:
     - id: Roles
       type: many-to-many
       ref: Role
-      mutation: "0010"
+      seq: 10
       mapTable: app_user_role
       mapSelf:
         - key: ID
@@ -29,6 +29,8 @@ User:
       mapRef:
         - key: ID
           field: app_role
+      mapFields:
+        - Name
     - id: CreatedBy
       type: many-to-one
       ref: User
