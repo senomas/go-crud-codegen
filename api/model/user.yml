@@ -1,4 +1,5 @@
 User:
+  mutation: "0001"
   table: app_user
   fields:
     - id: ID
@@ -17,11 +18,23 @@ User:
     - id: Token
       type: secret
       nullable: true
+    - id: Roles
+      type: many-to-many
+      ref: Role
+      mutation: "0010"
+      mapTable: app_user_role
+      mapSelf:
+        - key: ID
+          field: app_user
+      mapRef:
+        - key: ID
+          field: app_role
     - id: CreatedBy
       type: many-to-one
       ref: User
       refKeys:
-        - ID
+        - field: created_by
+          ref: ID
       refFields:
         - Name
         - Email
@@ -32,7 +45,8 @@ User:
       nullable: true
       ref: User
       refKeys:
-        - ID
+        - field: updated_by
+          ref: ID
       refFields:
         - Name
         - Email

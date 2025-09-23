@@ -35,34 +35,14 @@ func (r *RoleRepositoryImpl) Create(ctx context.Context, obj Role) (*Role, error
 	qry := `
     INSERT INTO app_role (
       name,
-      description,
-      created_by,
-      created_at,
-      updated_by,
-      updated_at
+      description
     ) VALUES (
       $1,
-      $2,
-      $3,
-      $4,
-      $5,
-      $6
+      $2
     )`
-	var objCreatedBy_ID *int64
-	if obj.CreatedBy != nil {
-		objCreatedBy_ID = &obj.CreatedBy.ID
-	}
-	var objUpdatedBy_ID *int64
-	if obj.UpdatedBy != nil {
-		objUpdatedBy_ID = &obj.UpdatedBy.ID
-	}
 	res, err := tx.ExecContext(ctx, qry,
 		obj.Name,
 		obj.Description,
-		objCreatedBy_ID,
-		obj.CreatedAt,
-		objUpdatedBy_ID,
-		obj.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -85,48 +65,20 @@ func (r *RoleRepositoryImpl) Get(ctx context.Context, id int64) (*Role, error) {
     SELECT
       obj.id,
       obj.name,
-      obj.description,
-      objCreatedBy.id,
-      objCreatedBy.name,
-      obj.created_at,
-      objUpdatedBy.id,
-      objUpdatedBy.name,
-      obj.updated_at
+      obj.description
     FROM
-      ((app_role obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
-      LEFT JOIN app_user objUpdatedBy ON obj.updated_by = objUpdatedBy.id)
+      app_role obj
     WHERE
       obj.id = $1`
 	var obj Role
-	var refCreatedBy_ID sql.NullInt64
-	var refCreatedBy_Name sql.NullString
-	var refUpdatedBy_ID sql.NullInt64
-	var refUpdatedBy_Name sql.NullString
+
 	err := r.db.QueryRowContext(ctx, qry, id).Scan(
 		&obj.ID,
 		&obj.Name,
 		&obj.Description,
-		&refCreatedBy_ID,
-		&refCreatedBy_Name,
-		&obj.CreatedAt,
-		&refUpdatedBy_ID,
-		&refUpdatedBy_Name,
-		&obj.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
-	}
-	if refCreatedBy_ID.Valid {
-		obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
-	}
-	if obj.CreatedBy != nil && refCreatedBy_Name.Valid {
-		obj.CreatedBy.Name = refCreatedBy_Name.String
-	}
-	if refUpdatedBy_ID.Valid {
-		obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
-	}
-	if obj.UpdatedBy != nil && refUpdatedBy_Name.Valid {
-		obj.UpdatedBy.Name = refUpdatedBy_Name.String
 	}
 	return &obj, nil
 }
@@ -136,48 +88,20 @@ func (r *RoleRepositoryImpl) GetByName(ctx context.Context, name string) (*Role,
     SELECT
       obj.id,
       obj.name,
-      obj.description,
-      objCreatedBy.id,
-      objCreatedBy.name,
-      obj.created_at,
-      objUpdatedBy.id,
-      objUpdatedBy.name,
-      obj.updated_at
+      obj.description
     FROM
-      ((app_role obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
-      LEFT JOIN app_user objUpdatedBy ON obj.updated_by = objUpdatedBy.id)
+      app_role obj
     WHERE
       obj.name = $1`
 	var obj Role
-	var refCreatedBy_ID sql.NullInt64
-	var refCreatedBy_Name sql.NullString
-	var refUpdatedBy_ID sql.NullInt64
-	var refUpdatedBy_Name sql.NullString
+
 	err := r.db.QueryRowContext(ctx, qry, name).Scan(
 		&obj.ID,
 		&obj.Name,
 		&obj.Description,
-		&refCreatedBy_ID,
-		&refCreatedBy_Name,
-		&obj.CreatedAt,
-		&refUpdatedBy_ID,
-		&refUpdatedBy_Name,
-		&obj.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
-	}
-	if refCreatedBy_ID.Valid {
-		obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
-	}
-	if obj.CreatedBy != nil && refCreatedBy_Name.Valid {
-		obj.CreatedBy.Name = refCreatedBy_Name.String
-	}
-	if refUpdatedBy_ID.Valid {
-		obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
-	}
-	if obj.UpdatedBy != nil && refUpdatedBy_Name.Valid {
-		obj.UpdatedBy.Name = refUpdatedBy_Name.String
 	}
 	return &obj, nil
 }
@@ -253,16 +177,9 @@ func (r *RoleRepositoryImpl) FindOne(ctx context.Context, filter []RoleFilter, s
     SELECT
       obj.id,
       obj.name,
-      obj.description,
-      objCreatedBy.id,
-      objCreatedBy.name,
-      obj.created_at,
-      objUpdatedBy.id,
-      objUpdatedBy.name,
-      obj.updated_at
+      obj.description
     FROM
-      ((app_role obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
-      LEFT JOIN app_user objUpdatedBy ON obj.updated_by = objUpdatedBy.id)`
+      app_role obj`
 	if len(qfilter) > 0 {
 		qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
 	}
@@ -296,35 +213,14 @@ func (r *RoleRepositoryImpl) FindOne(ctx context.Context, filter []RoleFilter, s
 	}
 	if rows.Next() {
 		var obj Role
-		var refCreatedBy_ID sql.NullInt64
-		var refCreatedBy_Name sql.NullString
-		var refUpdatedBy_ID sql.NullInt64
-		var refUpdatedBy_Name sql.NullString
+
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Name,
 			&obj.Description,
-			&refCreatedBy_ID,
-			&refCreatedBy_Name,
-			&obj.CreatedAt,
-			&refUpdatedBy_ID,
-			&refUpdatedBy_Name,
-			&obj.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
-		}
-		if refCreatedBy_ID.Valid {
-			obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
-		}
-		if obj.CreatedBy != nil && refCreatedBy_Name.Valid {
-			obj.CreatedBy.Name = refCreatedBy_Name.String
-		}
-		if refUpdatedBy_ID.Valid {
-			obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
-		}
-		if obj.UpdatedBy != nil && refUpdatedBy_Name.Valid {
-			obj.UpdatedBy.Name = refUpdatedBy_Name.String
 		}
 		return &obj, nil
 	}
@@ -413,16 +309,9 @@ func (r *RoleRepositoryImpl) Find(ctx context.Context, filter []RoleFilter, sort
     SELECT
       obj.id,
       obj.name,
-      obj.description,
-      objCreatedBy.id,
-      objCreatedBy.name,
-      obj.created_at,
-      objUpdatedBy.id,
-      objUpdatedBy.name,
-      obj.updated_at
+      obj.description
     FROM
-      ((app_role obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
-      LEFT JOIN app_user objUpdatedBy ON obj.updated_by = objUpdatedBy.id)`
+      app_role obj`
 	if len(qfilter) > 0 {
 		qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
 	}
@@ -457,35 +346,14 @@ func (r *RoleRepositoryImpl) Find(ctx context.Context, filter []RoleFilter, sort
 	list := []Role{}
 	for rows.Next() {
 		var obj Role
-		var refCreatedBy_ID sql.NullInt64
-		var refCreatedBy_Name sql.NullString
-		var refUpdatedBy_ID sql.NullInt64
-		var refUpdatedBy_Name sql.NullString
+
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Name,
 			&obj.Description,
-			&refCreatedBy_ID,
-			&refCreatedBy_Name,
-			&obj.CreatedAt,
-			&refUpdatedBy_ID,
-			&refUpdatedBy_Name,
-			&obj.UpdatedAt,
 		)
 		if err != nil {
 			return nil, total, err
-		}
-		if refCreatedBy_ID.Valid {
-			obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
-		}
-		if obj.CreatedBy != nil && refCreatedBy_Name.Valid {
-			obj.CreatedBy.Name = refCreatedBy_Name.String
-		}
-		if refUpdatedBy_ID.Valid {
-			obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
-		}
-		if obj.UpdatedBy != nil && refUpdatedBy_Name.Valid {
-			obj.UpdatedBy.Name = refUpdatedBy_Name.String
 		}
 		list = append(list, obj)
 	}
@@ -518,30 +386,6 @@ func (r *RoleRepositoryImpl) Update(ctx context.Context, obj Role, fields []Role
 			}
 			args = append(args, obj.Description)
 			qry += fmt.Sprintf("  description = $%d", len(args))
-		case RoleField_CreatedBy:
-			if len(args) > 0 {
-				qry += ","
-			}
-			args = append(args, obj.CreatedBy)
-			qry += fmt.Sprintf("  created_by = $%d", len(args))
-		case RoleField_CreatedAt:
-			if len(args) > 0 {
-				qry += ","
-			}
-			args = append(args, obj.CreatedAt)
-			qry += fmt.Sprintf("  created_at = $%d", len(args))
-		case RoleField_UpdatedBy:
-			if len(args) > 0 {
-				qry += ","
-			}
-			args = append(args, obj.UpdatedBy)
-			qry += fmt.Sprintf("  updated_by = $%d", len(args))
-		case RoleField_UpdatedAt:
-			if len(args) > 0 {
-				qry += ","
-			}
-			args = append(args, obj.UpdatedAt)
-			qry += fmt.Sprintf("  updated_at = $%d", len(args))
 		default:
 			return fmt.Errorf("field %v is unknown", f)
 		}

@@ -1,4 +1,5 @@
 Role:
+  mutation: "0002"
   table: app_role
   fields:
     - id: ID
@@ -9,27 +10,6 @@ Role:
     - id: Description
       type: text
       nullable: true
-    - id: CreatedBy
-      type: many-to-one
-      ref: User
-      refKeys:
-        - ID
-      refFields:
-        - Name
-        - Email
-    - id: CreatedAt
-      type: timestamp
-    - id: UpdatedBy
-      type: many-to-one
-      nullable: true
-      ref: User
-      refKeys:
-        - ID
-      refFields:
-        - Name
-        - Email
-    - id: UpdatedAt
-      type: timestamp
   pkeys:
     - ID
   uniques:

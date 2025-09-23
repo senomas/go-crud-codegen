@@ -1,8 +1,14 @@
 package model
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -36,24 +42,30 @@ func GetRepos() Repos {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS app_user (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		version INTEGER,
-		email VARCHAR(255) UNIQUE,
-		name VARCHAR(255),
-		salt VARCHAR(255),
-		password VARCHAR(255),
-		token VARCHAR(255),
-		created_by INTEGER,
-		created_at DATETIME,
-		updated_by INTEGER,
-		updated_at DATETIME,
-
-		FOREIGN KEY(created_by) REFERENCES app_user(id),
-		FOREIGN KEY(updated_by) REFERENCES app_user(id)
-	)`)
+	dir := "../migration"
+	ents, err := os.ReadDir(dir)
 	if err != nil {
 		log.Fatal(err)
+	}
+	files := make([]string, 0, len(ents))
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.EqualFold(filepath.Ext(name), ".sql") {
+			files = append(files, filepath.Join(dir, name))
+		}
+	}
+	sort.Slice(files, func(i, j int) bool {
+		return strings.ToLower(filepath.Base(files[i])) < strings.ToLower(filepath.Base(files[j]))
+	})
+	fmt.Printf("Migrate %+v files\n", files)
+	for _, f := range files {
+		err = RunSQLFile(context.Background(), db, f)
+		if err != nil {
+			log.Fatalf("migrate %s: %v", f, err)
+		}
 	}
 
 	return &RepositoryImpl{db: db}

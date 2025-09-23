@@ -33,6 +33,18 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 	txNew = true
 	defer tx.Rollback()
 	obj.Version = 1
+	var objCreatedBy_ID sql.NullInt64
+	if obj.CreatedBy != nil {
+		objCreatedBy_ID = sql.NullInt64{Int64: obj.CreatedBy.ID, Valid: true}
+	} else {
+		objCreatedBy_ID = sql.NullInt64{Valid: false}
+	}
+	var objUpdatedBy_ID sql.NullInt64
+	if obj.UpdatedBy != nil {
+		objUpdatedBy_ID = sql.NullInt64{Int64: obj.UpdatedBy.ID, Valid: true}
+	} else {
+		objUpdatedBy_ID = sql.NullInt64{Valid: false}
+	}
 	qry := `
     INSERT INTO app_user (
       email,
@@ -57,14 +69,6 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
       $9,
       $10
     )`
-	var objCreatedBy_ID *int64
-	if obj.CreatedBy != nil {
-		objCreatedBy_ID = &obj.CreatedBy.ID
-	}
-	var objUpdatedBy_ID *int64
-	if obj.UpdatedBy != nil {
-		objUpdatedBy_ID = &obj.UpdatedBy.ID
-	}
 	res, err := tx.ExecContext(ctx, qry,
 		obj.Email,
 		obj.Version,
@@ -104,12 +108,12 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
       obj.password,
       obj.token,
       objCreatedBy.id,
-      objCreatedBy.email,
       objCreatedBy.name,
+      objCreatedBy.email,
       obj.created_at,
       objUpdatedBy.id,
-      objUpdatedBy.email,
       objUpdatedBy.name,
+      objUpdatedBy.email,
       obj.updated_at
     FROM
       ((app_user obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
@@ -118,11 +122,11 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
       obj.id = $1`
 	var obj User
 	var refCreatedBy_ID sql.NullInt64
-	var refCreatedBy_Email sql.NullString
 	var refCreatedBy_Name sql.NullString
+	var refCreatedBy_Email sql.NullString
 	var refUpdatedBy_ID sql.NullInt64
-	var refUpdatedBy_Email sql.NullString
 	var refUpdatedBy_Name sql.NullString
+	var refUpdatedBy_Email sql.NullString
 	err := r.db.QueryRowContext(ctx, qry, id).Scan(
 		&obj.ID,
 		&obj.Email,
@@ -132,34 +136,42 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 		&obj.Password,
 		&obj.Token,
 		&refCreatedBy_ID,
-		&refCreatedBy_Email,
 		&refCreatedBy_Name,
+		&refCreatedBy_Email,
 		&obj.CreatedAt,
 		&refUpdatedBy_ID,
-		&refUpdatedBy_Email,
 		&refUpdatedBy_Name,
+		&refUpdatedBy_Email,
 		&obj.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if refCreatedBy_ID.Valid {
-		obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
+		if obj.CreatedBy == nil {
+			obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
+		} else {
+			obj.CreatedBy.ID = refCreatedBy_ID.Int64
+		}
 	}
-	if obj.CreatedBy != nil && refCreatedBy_Email.Valid {
-		obj.CreatedBy.Email = refCreatedBy_Email.String
-	}
-	if obj.CreatedBy != nil && refCreatedBy_Name.Valid {
+	if refCreatedBy_Name.Valid {
 		obj.CreatedBy.Name = refCreatedBy_Name.String
 	}
+	if refCreatedBy_Email.Valid {
+		obj.CreatedBy.Email = refCreatedBy_Email.String
+	}
 	if refUpdatedBy_ID.Valid {
-		obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
+		if obj.UpdatedBy == nil {
+			obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
+		} else {
+			obj.UpdatedBy.ID = refUpdatedBy_ID.Int64
+		}
 	}
-	if obj.UpdatedBy != nil && refUpdatedBy_Email.Valid {
-		obj.UpdatedBy.Email = refUpdatedBy_Email.String
-	}
-	if obj.UpdatedBy != nil && refUpdatedBy_Name.Valid {
+	if refUpdatedBy_Name.Valid {
 		obj.UpdatedBy.Name = refUpdatedBy_Name.String
+	}
+	if refUpdatedBy_Email.Valid {
+		obj.UpdatedBy.Email = refUpdatedBy_Email.String
 	}
 	return &obj, nil
 }
@@ -175,12 +187,12 @@ func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User,
       obj.password,
       obj.token,
       objCreatedBy.id,
-      objCreatedBy.email,
       objCreatedBy.name,
+      objCreatedBy.email,
       obj.created_at,
       objUpdatedBy.id,
-      objUpdatedBy.email,
       objUpdatedBy.name,
+      objUpdatedBy.email,
       obj.updated_at
     FROM
       ((app_user obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
@@ -189,11 +201,11 @@ func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User,
       obj.name = $1`
 	var obj User
 	var refCreatedBy_ID sql.NullInt64
-	var refCreatedBy_Email sql.NullString
 	var refCreatedBy_Name sql.NullString
+	var refCreatedBy_Email sql.NullString
 	var refUpdatedBy_ID sql.NullInt64
-	var refUpdatedBy_Email sql.NullString
 	var refUpdatedBy_Name sql.NullString
+	var refUpdatedBy_Email sql.NullString
 	err := r.db.QueryRowContext(ctx, qry, name).Scan(
 		&obj.ID,
 		&obj.Email,
@@ -203,34 +215,42 @@ func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User,
 		&obj.Password,
 		&obj.Token,
 		&refCreatedBy_ID,
-		&refCreatedBy_Email,
 		&refCreatedBy_Name,
+		&refCreatedBy_Email,
 		&obj.CreatedAt,
 		&refUpdatedBy_ID,
-		&refUpdatedBy_Email,
 		&refUpdatedBy_Name,
+		&refUpdatedBy_Email,
 		&obj.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if refCreatedBy_ID.Valid {
-		obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
+		if obj.CreatedBy == nil {
+			obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
+		} else {
+			obj.CreatedBy.ID = refCreatedBy_ID.Int64
+		}
 	}
-	if obj.CreatedBy != nil && refCreatedBy_Email.Valid {
-		obj.CreatedBy.Email = refCreatedBy_Email.String
-	}
-	if obj.CreatedBy != nil && refCreatedBy_Name.Valid {
+	if refCreatedBy_Name.Valid {
 		obj.CreatedBy.Name = refCreatedBy_Name.String
 	}
+	if refCreatedBy_Email.Valid {
+		obj.CreatedBy.Email = refCreatedBy_Email.String
+	}
 	if refUpdatedBy_ID.Valid {
-		obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
+		if obj.UpdatedBy == nil {
+			obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
+		} else {
+			obj.UpdatedBy.ID = refUpdatedBy_ID.Int64
+		}
 	}
-	if obj.UpdatedBy != nil && refUpdatedBy_Email.Valid {
-		obj.UpdatedBy.Email = refUpdatedBy_Email.String
-	}
-	if obj.UpdatedBy != nil && refUpdatedBy_Name.Valid {
+	if refUpdatedBy_Name.Valid {
 		obj.UpdatedBy.Name = refUpdatedBy_Name.String
+	}
+	if refUpdatedBy_Email.Valid {
+		obj.UpdatedBy.Email = refUpdatedBy_Email.String
 	}
 	return &obj, nil
 }
@@ -312,12 +332,12 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
       obj.password,
       obj.token,
       objCreatedBy.id,
-      objCreatedBy.email,
       objCreatedBy.name,
+      objCreatedBy.email,
       obj.created_at,
       objUpdatedBy.id,
-      objUpdatedBy.email,
       objUpdatedBy.name,
+      objUpdatedBy.email,
       obj.updated_at
     FROM
       ((app_user obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
@@ -356,11 +376,11 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 	if rows.Next() {
 		var obj User
 		var refCreatedBy_ID sql.NullInt64
-		var refCreatedBy_Email sql.NullString
 		var refCreatedBy_Name sql.NullString
+		var refCreatedBy_Email sql.NullString
 		var refUpdatedBy_ID sql.NullInt64
-		var refUpdatedBy_Email sql.NullString
 		var refUpdatedBy_Name sql.NullString
+		var refUpdatedBy_Email sql.NullString
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
@@ -370,34 +390,42 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			&obj.Password,
 			&obj.Token,
 			&refCreatedBy_ID,
-			&refCreatedBy_Email,
 			&refCreatedBy_Name,
+			&refCreatedBy_Email,
 			&obj.CreatedAt,
 			&refUpdatedBy_ID,
-			&refUpdatedBy_Email,
 			&refUpdatedBy_Name,
+			&refUpdatedBy_Email,
 			&obj.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 		if refCreatedBy_ID.Valid {
-			obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
+			if obj.CreatedBy == nil {
+				obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
+			} else {
+				obj.CreatedBy.ID = refCreatedBy_ID.Int64
+			}
 		}
-		if obj.CreatedBy != nil && refCreatedBy_Email.Valid {
-			obj.CreatedBy.Email = refCreatedBy_Email.String
-		}
-		if obj.CreatedBy != nil && refCreatedBy_Name.Valid {
+		if refCreatedBy_Name.Valid {
 			obj.CreatedBy.Name = refCreatedBy_Name.String
 		}
+		if refCreatedBy_Email.Valid {
+			obj.CreatedBy.Email = refCreatedBy_Email.String
+		}
 		if refUpdatedBy_ID.Valid {
-			obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
+			if obj.UpdatedBy == nil {
+				obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
+			} else {
+				obj.UpdatedBy.ID = refUpdatedBy_ID.Int64
+			}
 		}
-		if obj.UpdatedBy != nil && refUpdatedBy_Email.Valid {
-			obj.UpdatedBy.Email = refUpdatedBy_Email.String
-		}
-		if obj.UpdatedBy != nil && refUpdatedBy_Name.Valid {
+		if refUpdatedBy_Name.Valid {
 			obj.UpdatedBy.Name = refUpdatedBy_Name.String
+		}
+		if refUpdatedBy_Email.Valid {
+			obj.UpdatedBy.Email = refUpdatedBy_Email.String
 		}
 		return &obj, nil
 	}
@@ -492,12 +520,12 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
       obj.password,
       obj.token,
       objCreatedBy.id,
-      objCreatedBy.email,
       objCreatedBy.name,
+      objCreatedBy.email,
       obj.created_at,
       objUpdatedBy.id,
-      objUpdatedBy.email,
       objUpdatedBy.name,
+      objUpdatedBy.email,
       obj.updated_at
     FROM
       ((app_user obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
@@ -537,11 +565,11 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 	for rows.Next() {
 		var obj User
 		var refCreatedBy_ID sql.NullInt64
-		var refCreatedBy_Email sql.NullString
 		var refCreatedBy_Name sql.NullString
+		var refCreatedBy_Email sql.NullString
 		var refUpdatedBy_ID sql.NullInt64
-		var refUpdatedBy_Email sql.NullString
 		var refUpdatedBy_Name sql.NullString
+		var refUpdatedBy_Email sql.NullString
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
@@ -551,34 +579,42 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			&obj.Password,
 			&obj.Token,
 			&refCreatedBy_ID,
-			&refCreatedBy_Email,
 			&refCreatedBy_Name,
+			&refCreatedBy_Email,
 			&obj.CreatedAt,
 			&refUpdatedBy_ID,
-			&refUpdatedBy_Email,
 			&refUpdatedBy_Name,
+			&refUpdatedBy_Email,
 			&obj.UpdatedAt,
 		)
 		if err != nil {
 			return nil, total, err
 		}
 		if refCreatedBy_ID.Valid {
-			obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
+			if obj.CreatedBy == nil {
+				obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
+			} else {
+				obj.CreatedBy.ID = refCreatedBy_ID.Int64
+			}
 		}
-		if obj.CreatedBy != nil && refCreatedBy_Email.Valid {
-			obj.CreatedBy.Email = refCreatedBy_Email.String
-		}
-		if obj.CreatedBy != nil && refCreatedBy_Name.Valid {
+		if refCreatedBy_Name.Valid {
 			obj.CreatedBy.Name = refCreatedBy_Name.String
 		}
+		if refCreatedBy_Email.Valid {
+			obj.CreatedBy.Email = refCreatedBy_Email.String
+		}
 		if refUpdatedBy_ID.Valid {
-			obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
+			if obj.UpdatedBy == nil {
+				obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
+			} else {
+				obj.UpdatedBy.ID = refUpdatedBy_ID.Int64
+			}
 		}
-		if obj.UpdatedBy != nil && refUpdatedBy_Email.Valid {
-			obj.UpdatedBy.Email = refUpdatedBy_Email.String
-		}
-		if obj.UpdatedBy != nil && refUpdatedBy_Name.Valid {
+		if refUpdatedBy_Name.Valid {
 			obj.UpdatedBy.Name = refUpdatedBy_Name.String
+		}
+		if refUpdatedBy_Email.Valid {
+			obj.UpdatedBy.Email = refUpdatedBy_Email.String
 		}
 		list = append(list, obj)
 	}
@@ -622,6 +658,12 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User, fields []User
 			}
 			args = append(args, obj.Token)
 			qry += fmt.Sprintf("  token = $%d", len(args))
+		case UserField_Roles:
+			if len(args) > 0 {
+				qry += ","
+			}
+			args = append(args, obj.Roles)
+			qry += fmt.Sprintf("  roles = $%d", len(args))
 		case UserField_CreatedBy:
 			if len(args) > 0 {
 				qry += ","

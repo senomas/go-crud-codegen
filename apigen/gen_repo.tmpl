@@ -4,8 +4,14 @@
 package {{.Package}}
 
 import (
-  "log/slog"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"strings"
 )
+
 
 {{- define "ParamFk" -}}
   {{$Model := . -}}
@@ -48,35 +54,54 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
       {{- "\n  "}}obj.{{.ID}} = 1
     {{- end}}
   {{- end}}
-  qry := `
-    INSERT INTO {{.Table}} (
-      {{ $idx := 0 }}{{- range .Fields }}{{if not (eq .Type "autoincrement") -}}
-      {{if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{.Field}}
-      {{- end}}{{end}}
-    ) VALUES (
-      {{ $idx := 0 }}{{- range $i, $v := .Fields}}{{if not (eq .Type "autoincrement") -}}
-      {{if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}${{$i}}
-      {{- end}}{{end}}
-    )`
-  {{- range .Fields -}}{{$fb := . -}}
-    {{- if eq .Type "many-to-one" }}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
-        {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} *{{goType .}}
-        if obj.{{$fb.ID}} != nil {
-          obj{{$fb.ID}}_{{.ID}} = &obj.{{$fb.ID}}.{{.ID}}
-        }
-      {{- end}}{{end}}
+  {{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" -}}
+      {{- range (refKeys $Model .)}}
+        {{- "\n  "}}var obj{{$f.ID}}_{{.ref.ID}} {{ goSqlNullType .ref}}
+        {{- "\n  "}}if obj.{{$f.ID}} != nil {
+        {{- "\n    "}}obj{{$f.ID}}_{{.ref.ID}} = {{ goSqlNullType .ref}}{ {{ goSqlNullValue .ref}}:obj.{{$f.ID}}.{{.ref.ID}}, Valid:true }
+        {{- "\n  "}}} else {
+        {{- "\n    "}}obj{{$f.ID}}_{{.ref.ID}} = {{ goSqlNullType .ref}}{ Valid: false }
+        {{- "\n  "}}}
+      {{- end}}
     {{- end}}
   {{- end}}
+  qry := `
+    INSERT INTO {{.Table}} (
+      {{ $idx := 0 }}{{- range .Fields }}
+        {{- if eq .Type "autoincrement" -}}
+        {{- else if eq .Type "many-to-many" }}
+        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+          {{- range (refKeys $Model .)}}
+            {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{.field}}
+          {{- end}}
+        {{- else }}
+          {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{.Field}}
+        {{- end}}
+      {{- end}}
+    ) VALUES (
+      {{ $idx := 0 }}{{- range .Fields }}
+        {{- if eq .Type "autoincrement" -}}
+        {{- else if eq .Type "many-to-many" }}
+        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+          {{- range (refKeys $Model .)}}
+            {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}${{$idx}}
+          {{- end}}
+        {{- else }}
+          {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}${{$idx}}
+        {{- end}}
+      {{- end}}
+    )`
   res, err := tx.ExecContext(ctx, qry,
     {{- range .Fields -}}{{$f := . -}}
       {{- if eq .Type "autoincrement" -}}
+      {{- else if eq .Type "many-to-many" }}
       {{- else if eq .Type "many-to-one" }}{{$fb := . }}
-        {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
-          obj{{$fb.ID}}_{{.ID}},
-        {{- end}}{{end}}
+        {{- range (refKeys $Model .)}}
+          {{- "\n    "}}obj{{$f.ID}}_{{.ref.ID}},
+        {{- end}}
       {{-  else }}
-        obj.{{.ID}},
+        {{- "\n    "}}obj.{{.ID}},
       {{- end}}
     {{- end}}
   )
@@ -99,14 +124,15 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
 {{- define "SelectField" }}
   {{- $Model := .}}{{$idx := 0}}{{range .Fields -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+      {{- range (refKeys $Model .)}}
+        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
+        {{- "obj"}}{{$fb.ID}}.{{- .ref.Field}}
+      {{- end}}
+      {{- range (refFields $Model .)}}
         {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
         {{- "obj"}}{{$fb.ID}}.{{- .Field}}
-      {{- end}}{{end}}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refFields .ID) }}
-        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-        {{- "obj"}}{{$fb.ID}}.{{- .Field}}
-      {{- end}}{{end}}
+      {{- end}}
+    {{- else if eq .Type "many-to-many" }}
     {{-  else }}
       {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
       {{- "obj."}}{{.Field}}
@@ -129,9 +155,9 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
         {{- " LEFT JOIN "}}
       {{- end}}{{ $ridx = add $ridx 1 }}
       {{- (model $Model .).Table }} obj{{$fb.ID}}{{ " ON" -}}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
-        {{- " " }}obj.{{$fb.Field}} = obj{{$fb.ID}}.{{.Field}}
-      {{- end}}{{end}}
+      {{- range (refKeys $Model .)}}
+        {{- " " }}obj.{{$fb.Field}} = obj{{$fb.ID}}.{{.ref.Field}}
+      {{- end}}
       {{- ")" }}
     {{- end}}
   {{- end}}
@@ -141,12 +167,12 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   {{- $Model := . }}
   {{- $idx:=0}}{{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+      {{- range (refKeys $Model .)}}
+        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1}}var ref{{$fb.ID}}_{{.ref.ID}} {{goSqlNullType .ref}}
+      {{- end}}
+      {{- range (refFields $Model .)}}
         {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1}}var ref{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
-      {{- end}}{{end}}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refFields .ID) }}
-        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1}}var ref{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
-      {{- end}}{{end}}
+      {{- end}}
     {{- end}}
   {{- end}}
 {{- end}}
@@ -155,12 +181,13 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   {{- $Model := . }}
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+      {{- range (refKeys $Model .)}}
+        &ref{{$fb.ID}}_{{.ref.ID}},
+      {{- end}}
+      {{- range (refFields $Model .)}}
         &ref{{$fb.ID}}_{{.ID}},
-      {{- end}}{{end}}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refFields .ID) }}
-        &ref{{$fb.ID}}_{{.ID}},
-      {{- end}}{{end}}
+      {{- end}}
+    {{- else if eq .Type "many-to-many" }}
     {{-  else }}
       &obj.{{.ID}},
     {{- end}}
@@ -171,16 +198,20 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   {{- $Model := . -}}
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+      {{- range (refKeys $Model .)}}
+        if ref{{$fb.ID}}_{{.ref.ID}}.Valid {
+          if obj.{{$fb.ID}} == nil {
+        	  obj.{{$fb.ID}} = &User{ {{.ref.ID}}: ref{{$fb.ID}}_{{.ref.ID}}.{{goSqlNullValue .ref}}}
+          } else {
+        	  obj.{{$fb.ID}}.{{.ref.ID}} = ref{{$fb.ID}}_{{.ref.ID}}.{{goSqlNullValue .ref}}
+          }
+        }
+      {{- end}}
+      {{- range (refFields $Model .)}}
         if ref{{$fb.ID}}_{{.ID}}.Valid {
-        	obj.{{$fb.ID}} = &User{ {{.ID}}: ref{{$fb.ID}}_{{.ID}}{{goSqlNullValue .}}}
+          obj.{{$fb.ID}}.{{.ID}} = ref{{$fb.ID}}_{{.ID}}.{{goSqlNullValue .}}
         }
-      {{- end}}{{end}}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refFields .ID) }}
-        if obj.{{$fb.ID}} != nil && ref{{$fb.ID}}_{{.ID}}.Valid {
-        	obj.{{$fb.ID}}.{{.ID}} = ref{{$fb.ID}}_{{.ID}}{{goSqlNullValue .}}
-        }
-      {{- end}}{{end}}
+      {{- end}}
     {{- end}}
   {{- end}}
 {{- end}}

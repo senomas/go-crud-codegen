@@ -5,17 +5,12 @@ package model
 import (
 	"database/sql"
 	"encoding/json"
-	"time"
 )
 
 type Role struct {
 	ID          int64          `json:"id"`
 	Name        string         `json:"name"`
 	Description sql.NullString `json:"description"`
-	CreatedBy   *User          `json:"created_by"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedBy   *User          `json:"updated_by"`
-	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 type RoleField string
@@ -24,10 +19,6 @@ const (
 	RoleField_ID          RoleField = "id"
 	RoleField_Name        RoleField = "name"
 	RoleField_Description RoleField = "description"
-	RoleField_CreatedBy   RoleField = "created_by"
-	RoleField_CreatedAt   RoleField = "created_at"
-	RoleField_UpdatedBy   RoleField = "updated_by"
-	RoleField_UpdatedAt   RoleField = "updated_at"
 )
 
 type RoleSort struct {

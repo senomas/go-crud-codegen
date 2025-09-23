@@ -16,6 +16,7 @@ type User struct {
 	Salt      string         `json:"salt"`
 	Password  string         `json:"password"`
 	Token     sql.NullString `json:"token"`
+	Roles     []Role         `json:"roles"`
 	CreatedBy *User          `json:"created_by"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedBy *User          `json:"updated_by"`
@@ -32,6 +33,7 @@ const (
 	UserField_Salt      UserField = "salt"
 	UserField_Password  UserField = "password"
 	UserField_Token     UserField = "token"
+	UserField_Roles     UserField = "roles"
 	UserField_CreatedBy UserField = "created_by"
 	UserField_CreatedAt UserField = "created_at"
 	UserField_UpdatedBy UserField = "updated_by"
