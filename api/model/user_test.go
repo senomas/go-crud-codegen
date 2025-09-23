@@ -138,9 +138,11 @@ func TestUserCrud(t *testing.T) {
 		assert.NotNil(t, user.CreatedBy)
 		assert.Equal(t, int64(1), user.CreatedBy.ID)
 		assert.Equal(t, "Admin", user.CreatedBy.Name)
+		assert.Equal(t, "admin@demo.com", user.CreatedBy.Email)
 		assert.NotNil(t, user.UpdatedBy)
 		assert.Equal(t, int64(1), user.UpdatedBy.ID)
 		assert.Equal(t, "Admin", user.UpdatedBy.Name)
+		assert.Equal(t, "admin@demo.com", user.UpdatedBy.Email)
 	})
 
 	t.Run("Create user Operator 1", func(t *testing.T) {

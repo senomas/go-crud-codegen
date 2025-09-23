@@ -447,11 +447,9 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}, fields 
     return err
   }
   if ra == 0 {
-    slog.Error("Update", "qry:", qry, "args:", args, "Error:", err)
     return fmt.Errorf("no rows affected")
   }
   if ra != 1 {
-    slog.Error("Update", "qry:", qry, "args:", args, "Error:", err)
     return fmt.Errorf("invalid rows affected (%d)", ra)
   }
   if txNew {

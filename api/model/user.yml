@@ -24,6 +24,7 @@ User:
         - ID
       refFields:
         - Name
+        - Email
     - id: CreatedAt
       type: timestamp
     - id: UpdatedBy
@@ -34,6 +35,7 @@ User:
         - ID
       refFields:
         - Name
+        - Email
     - id: UpdatedAt
       type: timestamp
   pkeys:
