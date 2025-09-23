@@ -6,7 +6,7 @@ SHELL := /bin/bash
 RUN_TARGET ?= test
 
 test: build FORCE
-	@cd api && rm -rf app.db && go test -v ./...
+	@cd api && rm -rf app.db && go test -v --failfast ./...
 
 build: FORCE
 	@cd apigen && go run .

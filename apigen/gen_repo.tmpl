@@ -28,7 +28,7 @@ type {{.ID}}Repository interface {
   {{- end}}
   FindOne(ctx context.Context, filter []{{.ID}}Filter, sort []{{.ID}}Sort) (*{{.ID}}, error)
   Find(ctx context.Context, filter []{{.ID}}Filter, sort []{{.ID}}Sort, limit int, offset int64) ([]{{.ID}}, int64, error)
-  Update(ctx context.Context, obj {{.ID}}) error
+  Update(ctx context.Context, obj {{.ID}}, fields []{{.ID}}Field) error
   Delete(ctx context.Context, {{template "ParamFk" . }}) error
 }
 
@@ -98,6 +98,10 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
         {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
         {{- "obj"}}{{$fb.ID}}.{{- .Field}}
       {{- end}}{{end}}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refFields .ID) }}
+        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
+        {{- "obj"}}{{$fb.ID}}.{{- .Field}}
+      {{- end}}{{end}}
     {{-  else }}
       {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
       {{- "obj."}}{{.Field}}
@@ -135,6 +139,9 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
       {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
         {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1}}var ref{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
       {{- end}}{{end}}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refFields .ID) }}
+        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1}}var ref{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
+      {{- end}}{{end}}
     {{- end}}
   {{- end}}
 {{- end}}
@@ -144,6 +151,9 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+        &ref{{$fb.ID}}_{{.ID}},
+      {{- end}}{{end}}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refFields .ID) }}
         &ref{{$fb.ID}}_{{.ID}},
       {{- end}}{{end}}
     {{-  else }}
@@ -159,6 +169,11 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
       {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
         if ref{{$fb.ID}}_{{.ID}}.Valid {
         	obj.{{$fb.ID}} = &User{ {{.ID}}: ref{{$fb.ID}}_{{.ID}}{{goSqlNullValue .}}}
+        }
+      {{- end}}{{end}}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refFields .ID) }}
+        if obj.{{$fb.ID}} != nil && ref{{$fb.ID}}_{{.ID}}.Valid {
+        	obj.{{$fb.ID}}.{{.ID}} = ref{{$fb.ID}}_{{.ID}}{{goSqlNullValue .}}
         }
       {{- end}}{{end}}
     {{- end}}
@@ -382,7 +397,7 @@ func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter
   return list, total, nil
 }
 
-func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}) error {
+func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.ID}}Field) error {
   var tx *sql.Tx
   var err error
   var txNew bool
@@ -392,34 +407,47 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}) error {
   }
   txNew = true
   defer tx.Rollback()
-  qry := `{{ $idx := 1 }}
-    UPDATE {{.Table}} SET
-      {{ range .Fields -}}{{if isUpdatable . $Model -}}
-      {{if gt $idx 1}},{{"\n      "}}{{end}}{{.Field}} = ${{$idx}}{{$idx = add $idx 1}}
-      {{- end}}{{end}}
-    WHERE
-      {{$fidx := $idx}}{{ range .Fields -}}{{if isPk . $Model -}}
-      {{if gt $idx $fidx}},{{"\n      "}}{{end}}{{.Field}} = ${{$idx}}{{$idx = add $idx 1 -}}
-      {{- end}}{{- end}}`
-  res, err := tx.ExecContext(ctx, qry,
-    {{- range .Fields -}}{{if isUpdatable . $Model -}}
-      {{"\n    "}}obj.{{.ID}},
+  args := []any{}
+  qry := `UPDATE {{.Table}} SET`
+  nf := false
+  for _, f := range fields {
+    if nf {
+      qry += ",\n      "
+    } else {
+      qry += "\n      "
+      nf = true
+    }
+    switch f {
+    {{- range .Fields}}{{if isUpdatable . $Model }}
+    case {{$Model.ID}}Field_{{.ID}}:
+      args = append(args, obj.{{.ID}})
+      qry += fmt.Sprintf("  {{.Field}} = $%d", len(args))
     {{- end}}{{end}}
-    {{- range .Fields -}}{{if (isPk . $Model) -}}
-      {{"\n    "}}obj.{{.ID}},
-    {{- end}}{{end}}
-  )
+    default:
+      return fmt.Errorf("field %v is unknown", f)
+    }
+  }
+  qry += "\nWHERE\n"
+  {{$idx := 0}}{{ range .Fields -}}{{if isPk . $Model -}}
+    args = append(args, obj.{{.ID}})
+    qry += fmt.Sprintf("  {{.Field}} = $%d{{if gt $idx 0}} AND{{end}}{{$idx = add $idx 1}}", len(args))
+  {{- end}}{{- end}}
+  res, err := tx.ExecContext(ctx, qry, args...)
   if err != nil {
+    slog.Error("Update", "qry:", qry, "Error:", err)
     return err
   }
   ra, err := res.RowsAffected()
   if err != nil {
+    slog.Error("Update", "qry:", qry, "args:", args, "Error:", err)
     return err
   }
   if ra == 0 {
+    slog.Error("Update", "qry:", qry, "args:", args, "Error:", err)
     return fmt.Errorf("no rows affected")
   }
   if ra != 1 {
+    slog.Error("Update", "qry:", qry, "args:", args, "Error:", err)
     return fmt.Errorf("invalid rows affected (%d)", ra)
   }
   if txNew {

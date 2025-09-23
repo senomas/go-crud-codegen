@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"hanoman.co.id/mwui/api/model"
@@ -12,11 +13,15 @@ import (
 func TestUserCrud(t *testing.T) {
 	repos := model.GetRepos()
 	ctx := context.Background()
+	createTime := time.Now().Add(-time.Hour * 24)
+	createTime1 := time.Now().Add(-time.Hour * 24).Add(1 * time.Second)
+	updateTime := time.Now().Add(-time.Hour * 24).Add(5 * time.Minute)
 
 	t.Run("Create user Admin", func(t *testing.T) {
 		user := model.User{
-			Email: "admin@example.com",
-			Name:  "Admin",
+			Email:     "admin@example.com",
+			Name:      "Admin",
+			CreatedAt: createTime,
 		}
 
 		res, err := repos.User().Create(ctx, user)
@@ -45,16 +50,17 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, "Admin", user.Name)
 		assert.Equal(t, "", user.Salt)
 		assert.Equal(t, "", user.Password)
+		assert.Equal(t, createTime.Format(time.RFC1123Z), user.CreatedAt.Format(time.RFC1123Z))
 	})
 
 	t.Run("Update user Admin", func(t *testing.T) {
 		user := model.User{
-			ID:    1,
-			Email: "admin@demo.com",
-			Name:  "Admin",
+			ID:        1,
+			Email:     "admin@demo.com",
+			UpdatedAt: updateTime,
 		}
 
-		err := repos.User().Update(ctx, user)
+		err := repos.User().Update(ctx, user, []model.UserField{model.UserField_Email, model.UserField_UpdatedAt})
 		assert.NoError(t, err)
 	})
 
@@ -67,6 +73,8 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, "Admin", user.Name)
 		assert.Equal(t, "", user.Salt)
 		assert.Equal(t, "", user.Password)
+		assert.Equal(t, createTime.Format(time.RFC1123Z), user.CreatedAt.Format(time.RFC1123Z), "createdAt must match")
+		assert.Equal(t, updateTime.Format(time.RFC1123Z), user.UpdatedAt.Format(time.RFC1123Z), "updatedAt must match")
 	})
 
 	t.Run("Find all user", func(t *testing.T) {
@@ -83,11 +91,13 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("Create user Staff", func(t *testing.T) {
 		user := model.User{
-			Email: "staff@demo.com",
-			Name:  "Staff",
+			Email:     "staff@demo.com",
+			Name:      "Staff",
+			CreatedAt: createTime1,
 			CreatedBy: &model.User{
 				ID: 1,
 			},
+			UpdatedAt: updateTime,
 			UpdatedBy: &model.User{
 				ID: 1,
 			},
@@ -97,6 +107,8 @@ func TestUserCrud(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(2), res.ID)
+		assert.Equal(t, createTime1.Format(time.RFC1123Z), res.CreatedAt.Format(time.RFC1123Z), "createdAt must match")
+		assert.Equal(t, updateTime.Format(time.RFC1123Z), res.UpdatedAt.Format(time.RFC1123Z), "updatedAt must match")
 	})
 
 	t.Run("Get user Staff", func(t *testing.T) {
@@ -110,8 +122,10 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, "", user.Password)
 		assert.NotNil(t, user.CreatedBy)
 		assert.Equal(t, int64(1), user.CreatedBy.ID)
+		assert.Equal(t, "Admin", user.CreatedBy.Name)
 		assert.NotNil(t, user.UpdatedBy)
 		assert.Equal(t, int64(1), user.UpdatedBy.ID)
+		assert.Equal(t, "Admin", user.UpdatedBy.Name)
 	})
 
 	t.Run("Create user Operator 1", func(t *testing.T) {
