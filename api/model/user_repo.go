@@ -34,6 +34,7 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 	qry := `
     INSERT INTO app_user (
       email,
+      version,
       name,
       salt,
       password,
@@ -51,7 +52,8 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
       $6,
       $7,
       $8,
-      $9
+      $9,
+      $10
     )`
 	var objCreatedBy_ID *int64
 	if obj.CreatedBy != nil {
@@ -63,6 +65,7 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 	}
 	res, err := tx.ExecContext(ctx, qry,
 		obj.Email,
+		obj.Version,
 		obj.Name,
 		obj.Salt,
 		obj.Password,
@@ -93,6 +96,7 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
     SELECT
       obj.id,
       obj.email,
+      obj.version,
       obj.name,
       obj.salt,
       obj.password,
@@ -116,6 +120,7 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 	err := r.db.QueryRowContext(ctx, qry, id).Scan(
 		&obj.ID,
 		&obj.Email,
+		&obj.Version,
 		&obj.Name,
 		&obj.Salt,
 		&obj.Password,
@@ -150,6 +155,7 @@ func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User,
     SELECT
       obj.id,
       obj.email,
+      obj.version,
       obj.name,
       obj.salt,
       obj.password,
@@ -173,6 +179,7 @@ func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User,
 	err := r.db.QueryRowContext(ctx, qry, name).Scan(
 		&obj.ID,
 		&obj.Email,
+		&obj.Version,
 		&obj.Name,
 		&obj.Salt,
 		&obj.Password,
@@ -243,6 +250,7 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
     SELECT
       obj.id,
       obj.email,
+      obj.version,
       obj.name,
       obj.salt,
       obj.password,
@@ -296,6 +304,7 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
+			&obj.Version,
 			&obj.Name,
 			&obj.Salt,
 			&obj.Password,
@@ -379,6 +388,7 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
     SELECT
       obj.id,
       obj.email,
+      obj.version,
       obj.name,
       obj.salt,
       obj.password,
@@ -433,6 +443,7 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
+			&obj.Version,
 			&obj.Name,
 			&obj.Salt,
 			&obj.Password,
@@ -513,6 +524,8 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User, fields []User
 	qry += "\nWHERE\n"
 	args = append(args, obj.ID)
 	qry += fmt.Sprintf("  id = $%d", len(args))
+	args = append(args, obj.Version)
+	qry += fmt.Sprintf(" AND\n  version = $%d", len(args))
 	res, err := tx.ExecContext(ctx, qry, args...)
 	if err != nil {
 		slog.Error("Update", "qry:", qry, "Error:", err)

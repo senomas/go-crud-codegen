@@ -20,6 +20,9 @@ func GenModels(tmpl *template.Template, models map[string]ModelDef, dir string) 
 			}
 			defer f.Close()
 
+			if md.Extras == nil {
+				md.Extras = make(map[string]any)
+			}
 			md.Extras["Models"] = models
 			err = tmpl.Execute(f, md)
 			if err != nil {

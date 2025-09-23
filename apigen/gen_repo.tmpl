@@ -430,7 +430,11 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}, fields 
   qry += "\nWHERE\n"
   {{$idx := 0}}{{ range .Fields -}}{{if isPk . $Model -}}
     args = append(args, obj.{{.ID}})
-    qry += fmt.Sprintf("  {{.Field}} = $%d{{if gt $idx 0}} AND{{end}}{{$idx = add $idx 1}}", len(args))
+    qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = $%d{{$idx = add $idx 1}}", len(args))
+  {{- end}}{{- end}}
+  {{ range .Fields -}}{{if eq .Type "version" -}}
+    args = append(args, obj.{{.ID}})
+    qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = $%d{{$idx = add $idx 1}}", len(args))
   {{- end}}{{- end}}
   res, err := tx.ExecContext(ctx, qry, args...)
   if err != nil {

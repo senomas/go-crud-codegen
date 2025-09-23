@@ -1,13 +1,13 @@
 User:
   table: app_user
-  audit: true
-  version: true
   fields:
     - id: ID
       field: id
       type: autoincrement
     - id: Email
       type: text
+    - id: Version
+      type: version
     - id: Name
       type: text
     - id: Salt

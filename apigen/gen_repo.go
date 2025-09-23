@@ -20,6 +20,9 @@ func GenRepos(tmpl *template.Template, models map[string]ModelDef, dir string) e
 			}
 			defer f.Close()
 
+			if md.Extras == nil {
+				md.Extras = make(map[string]any)
+			}
 			md.Extras["Models"] = models
 			tmpl.Execute(f, md)
 			fmt.Printf("Repo: %s PATH [%s]\n", name, mdir)

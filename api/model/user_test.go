@@ -19,6 +19,7 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("Create user Admin", func(t *testing.T) {
 		user := model.User{
+			Version:   1,
 			Email:     "admin@example.com",
 			Name:      "Admin",
 			CreatedAt: createTime,
@@ -53,9 +54,22 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, createTime.Format(time.RFC1123Z), user.CreatedAt.Format(time.RFC1123Z))
 	})
 
+	t.Run("Update invalid version user Admin", func(t *testing.T) {
+		user := model.User{
+			ID:        1,
+			Version:   0,
+			Email:     "admin@demo.com",
+			UpdatedAt: updateTime,
+		}
+
+		err := repos.User().Update(ctx, user, []model.UserField{model.UserField_Email, model.UserField_UpdatedAt})
+		assert.ErrorContains(t, err, "no rows affected")
+	})
+
 	t.Run("Update user Admin", func(t *testing.T) {
 		user := model.User{
 			ID:        1,
+			Version:   1,
 			Email:     "admin@demo.com",
 			UpdatedAt: updateTime,
 		}
@@ -91,6 +105,7 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("Create user Staff", func(t *testing.T) {
 		user := model.User{
+			Version:   1,
 			Email:     "staff@demo.com",
 			Name:      "Staff",
 			CreatedAt: createTime1,
@@ -130,8 +145,9 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("Create user Operator 1", func(t *testing.T) {
 		user := model.User{
-			Email: "opr1@demo.com",
-			Name:  "Operator 1",
+			Version: 1,
+			Email:   "opr1@demo.com",
+			Name:    "Operator 1",
 		}
 
 		res, err := repos.User().Create(ctx, user)
@@ -142,8 +158,9 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("Create user Operator 2", func(t *testing.T) {
 		user := model.User{
-			Email: "opr2@demo.com",
-			Name:  "Operator 2",
+			Version: 1,
+			Email:   "opr2@demo.com",
+			Name:    "Operator 2",
 		}
 
 		res, err := repos.User().Create(ctx, user)
@@ -155,8 +172,9 @@ func TestUserCrud(t *testing.T) {
 	t.Run("Create 23 dummy user", func(t *testing.T) {
 		for i := 1; i <= 23; i++ {
 			user := model.User{
-				Email: fmt.Sprintf("dummy%d@demo.com", i),
-				Name:  fmt.Sprintf("Dummy %d", i),
+				Version: 1,
+				Email:   fmt.Sprintf("dummy%d@demo.com", i),
+				Name:    fmt.Sprintf("Dummy %d", i),
 			}
 
 			res, err := repos.User().Create(ctx, user)

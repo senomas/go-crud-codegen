@@ -10,6 +10,7 @@ import (
 type User struct {
 	ID        int64          `json:"id"`
 	Email     string         `json:"email"`
+	Version   int64          `json:"version"`
 	Name      string         `json:"name"`
 	Salt      string         `json:"salt"`
 	Password  string         `json:"password"`
@@ -25,6 +26,7 @@ type UserField string
 const (
 	UserField_ID        UserField = "id"
 	UserField_Email     UserField = "email"
+	UserField_Version   UserField = "version"
 	UserField_Name      UserField = "name"
 	UserField_Salt      UserField = "salt"
 	UserField_Password  UserField = "password"

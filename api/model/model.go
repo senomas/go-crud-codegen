@@ -38,6 +38,7 @@ func GetRepos() Repos {
 	}
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS app_user (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		version INTEGER,
 		email VARCHAR(255) UNIQUE,
 		name VARCHAR(255),
 		salt VARCHAR(255),

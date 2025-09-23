@@ -72,6 +72,8 @@ func Templates() *template.Template {
 				switch fo.Type {
 				case "autoincrement":
 					vt = "sql.NullInt64"
+				case "version":
+					vt = "sql.NullInt64"
 				case "text":
 					vt = "sql.NullString"
 				case "password", "salt", "secret":
@@ -84,6 +86,8 @@ func Templates() *template.Template {
 			} else {
 				switch fo.Type {
 				case "autoincrement":
+					vt = "int64"
+				case "version":
 					vt = "int64"
 				case "text":
 					vt = "string"
@@ -102,6 +106,8 @@ func Templates() *template.Template {
 			switch fo.Type {
 			case "autoincrement":
 				vt = "sql.NullInt64"
+			case "ver":
+				vt = "sql.NullInt64"
 			case "text":
 				vt = "sql.NullString"
 			case "password", "salt", "secret":
@@ -119,6 +125,8 @@ func Templates() *template.Template {
 			switch fo.Type {
 			case "autoincrement":
 				vt = ".Int64"
+			case "version":
+				vt = ".Int64"
 			case "text":
 				vt = ".String"
 			case "password", "salt", "secret":
@@ -135,7 +143,7 @@ func Templates() *template.Template {
 			return slices.Contains(model.PKeys, field.ID)
 		},
 		"isUpdatable": func(field FieldDef, model ModelDef) bool {
-			return !slices.Contains(model.PKeys, field.ID) && field.Type != "password" && field.Type != "salt"
+			return !slices.Contains(model.PKeys, field.ID) && field.Type != "password" && field.Type != "salt" && field.Type != "version"
 		},
 	}).ParseGlob("*.tmpl")
 	if err != nil {
