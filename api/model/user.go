@@ -2,14 +2,19 @@
 
 package model
 
+import "database/sql"
+
 type User struct {
-	ID        int64   `json:"id"`
-	Email     string  `json:"email"`
-	Name      string  `json:"name"`
-	Salt      string  `json:"salt"`
-	Password  string  `json:"password"`
-	Token     *string `json:"token"`
-	CreatedBy *User   `json:"created_by"`
+	ID              int64          `json:"id"`
+	Email           string         `json:"email"`
+	Name            string         `json:"name"`
+	Salt            string         `json:"salt"`
+	Password        string         `json:"password"`
+	Token           sql.NullString `json:"token"`
+	CreatedBy       *User          `json:"created_by"`
+	UpdatedBy       *User          `json:"updated_by"`
+	refCreatedBy_ID sql.NullInt64
+	refUpdatedBy_ID sql.NullInt64
 }
 
 type UserField string
@@ -22,6 +27,7 @@ const (
 	UserField_Password  UserField = "password"
 	UserField_Token     UserField = "token"
 	UserField_CreatedBy UserField = "created_by"
+	UserField_UpdatedBy UserField = "updated_by"
 )
 
 type UserSort struct {

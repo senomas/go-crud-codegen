@@ -88,6 +88,9 @@ func TestUserCrud(t *testing.T) {
 			CreatedBy: &model.User{
 				ID: 1,
 			},
+			UpdatedBy: &model.User{
+				ID: 1,
+			},
 		}
 
 		res, err := repos.User().Create(ctx, user)
@@ -105,6 +108,10 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, "Staff", user.Name)
 		assert.Equal(t, "", user.Salt)
 		assert.Equal(t, "", user.Password)
+		assert.NotNil(t, user.CreatedBy)
+		assert.Equal(t, int64(1), user.CreatedBy.ID)
+		assert.NotNil(t, user.UpdatedBy)
+		assert.Equal(t, int64(1), user.UpdatedBy.ID)
 	})
 
 	t.Run("Create user Operator 1", func(t *testing.T) {

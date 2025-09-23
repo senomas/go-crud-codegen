@@ -44,8 +44,10 @@ func GetRepos() Repos {
 		password VARCHAR(255),
 		token VARCHAR(255),
 		created_by INTEGER,
-		
-		FOREIGN KEY(created_by) REFERENCES app_user(id)
+		updated_by INTEGER,
+
+		FOREIGN KEY(created_by) REFERENCES app_user(id),
+		FOREIGN KEY(updated_by) REFERENCES app_user(id)
 	)`)
 	if err != nil {
 		log.Fatal(err)

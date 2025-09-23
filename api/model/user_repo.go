@@ -4,7 +4,6 @@ package model
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -37,18 +36,24 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
       salt,
       password,
       token,
-      created_by
+      created_by,
+      updated_by
     ) VALUES (
       $1,
       $2,
       $3,
       $4,
       $5,
-      $6
+      $6,
+      $7
     )`
 	var objCreatedBy_ID *int64
 	if obj.CreatedBy != nil {
 		objCreatedBy_ID = &obj.CreatedBy.ID
+	}
+	var objUpdatedBy_ID *int64
+	if obj.UpdatedBy != nil {
+		objUpdatedBy_ID = &obj.UpdatedBy.ID
 	}
 	res, err := r.db.ExecContext(ctx, qry,
 		obj.Email,
@@ -57,6 +62,7 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 		obj.Password,
 		obj.Token,
 		objCreatedBy_ID,
+		objUpdatedBy_ID,
 	)
 	if err != nil {
 		return nil, err
@@ -81,11 +87,11 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
       salt,
       password,
       token,
-      created_by
+      created_by,
+      updated_by
     FROM app_user WHERE
       id = $1`
 	var obj User
-	var objCreatedBy_ID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, qry, id).Scan(
 		&obj.ID,
 		&obj.Email,
@@ -93,13 +99,58 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 		&obj.Salt,
 		&obj.Password,
 		&obj.Token,
-		&objCreatedBy_ID,
+		&obj.refCreatedBy_ID,
+		&obj.refUpdatedBy_ID,
 	)
 	if err != nil {
 		return nil, err
 	}
-	if objCreatedBy_ID.Valid {
-		obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
+	refs := map[string][]any{}
+	if obj.refCreatedBy_ID.Valid {
+		refs[fmt.Sprintf("%d", obj.refCreatedBy_ID.Int64)] = []any{obj.refCreatedBy_ID}
+	}
+	if obj.refUpdatedBy_ID.Valid {
+		refs[fmt.Sprintf("%d", obj.refUpdatedBy_ID.Int64)] = []any{obj.refUpdatedBy_ID}
+	}
+	if len(refs) > 0 {
+		args := []any{}
+		qry = `
+    SELECT
+      id,
+      name,
+    FROM app_user WHERE`
+		nfirst := false
+		for _, v := range refs {
+			if nfirst {
+				qry += " OR"
+			} else {
+				nfirst = true
+			}
+			qry += fmt.Sprintf("\n  id = $%d", len(args)+1)
+			args = append(args, v[0])
+		}
+		rows, err := r.db.QueryContext(ctx, qry, args...)
+		if err != nil {
+			slog.Error("Query refs", "qry:", qry, "Error:", err)
+			return nil, err
+		}
+		for rows.Next() {
+			var objRef User
+			err = rows.Scan(
+				&objRef.ID,
+				&objRef.Name,
+			)
+			if err != nil {
+				slog.Error("Scan refs", "qry:", qry, "Error:", err)
+				return nil, err
+			}
+			if obj.refCreatedBy_ID.Valid && objRef.ID == obj.refCreatedBy_ID.Int64 {
+				obj.CreatedBy = &objRef
+			}
+			if obj.refUpdatedBy_ID.Valid && objRef.ID == obj.refUpdatedBy_ID.Int64 {
+				obj.UpdatedBy = &objRef
+			}
+		}
 	}
 	return &obj, nil
 }
@@ -113,11 +164,11 @@ func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User,
       salt,
       password,
       token,
-      created_by
+      created_by,
+      updated_by
     FROM app_user WHERE
       name = $1`
 	var obj User
-	var objCreatedBy_ID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, qry, name).Scan(
 		&obj.ID,
 		&obj.Email,
@@ -125,13 +176,17 @@ func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User,
 		&obj.Salt,
 		&obj.Password,
 		&obj.Token,
-		&objCreatedBy_ID,
+		&obj.refCreatedBy_ID,
+		&obj.refUpdatedBy_ID,
 	)
 	if err != nil {
 		return nil, err
 	}
-	if objCreatedBy_ID.Valid {
-		obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
+	if obj.refCreatedBy_ID.Valid {
+		obj.CreatedBy = &User{ID: obj.refCreatedBy_ID.Int64}
+	}
+	if obj.refUpdatedBy_ID.Valid {
+		obj.UpdatedBy = &User{ID: obj.refUpdatedBy_ID.Int64}
 	}
 	return &obj, nil
 }
@@ -181,7 +236,8 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
       salt,
       password,
       token,
-      created_by
+      created_by,
+      updated_by
     FROM app_user`
 	if len(qfilter) > 0 {
 		qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
@@ -216,7 +272,6 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 	}
 	if rows.Next() {
 		var obj User
-		var objCreatedBy_ID sql.NullInt64
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
@@ -224,13 +279,17 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			&obj.Salt,
 			&obj.Password,
 			&obj.Token,
-			&objCreatedBy_ID,
+			&obj.refCreatedBy_ID,
+			&obj.refUpdatedBy_ID,
 		)
 		if err != nil {
 			return nil, err
 		}
-		if objCreatedBy_ID.Valid {
-			obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
+		if obj.refCreatedBy_ID.Valid {
+			obj.CreatedBy = &User{ID: obj.refCreatedBy_ID.Int64}
+		}
+		if obj.refUpdatedBy_ID.Valid {
+			obj.UpdatedBy = &User{ID: obj.refUpdatedBy_ID.Int64}
 		}
 		return &obj, nil
 	}
@@ -293,7 +352,8 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
       salt,
       password,
       token,
-      created_by
+      created_by,
+      updated_by
     FROM app_user`
 	if len(qfilter) > 0 {
 		qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
@@ -329,7 +389,6 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 	list := []User{}
 	for rows.Next() {
 		var obj User
-		var objCreatedBy_ID sql.NullInt64
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
@@ -337,13 +396,17 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			&obj.Salt,
 			&obj.Password,
 			&obj.Token,
-			&objCreatedBy_ID,
+			&obj.refCreatedBy_ID,
+			&obj.refUpdatedBy_ID,
 		)
 		if err != nil {
 			return nil, total, err
 		}
-		if objCreatedBy_ID.Valid {
-			obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
+		if obj.refCreatedBy_ID.Valid {
+			obj.CreatedBy = &User{ID: obj.refCreatedBy_ID.Int64}
+		}
+		if obj.refUpdatedBy_ID.Valid {
+			obj.UpdatedBy = &User{ID: obj.refUpdatedBy_ID.Int64}
 		}
 		list = append(list, obj)
 	}
@@ -361,14 +424,16 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
       email = $1,
       name = $2,
       token = $3,
-      created_by = $4
+      created_by = $4,
+      updated_by = $5
     WHERE
-      id = $5`
+      id = $6`
 	res, err := r.db.ExecContext(ctx, qry,
 		obj.Email,
 		obj.Name,
 		obj.Token,
 		obj.CreatedBy,
+		obj.UpdatedBy,
 		obj.ID,
 	)
 	if err != nil {

@@ -4,9 +4,16 @@ package {{.Package}}
 
 {{$Model := .}}
 type {{.ID}} struct {
-	{{range .Fields -}}
-	{{.ID}}       {{goType .}}   `json:"{{.Field}}"`
-	{{end}}
+  {{- range .Fields }}
+	  {{.ID}}       {{goType .}}   `json:"{{.Field}}"`
+  {{- end}}
+  {{- range .Fields -}}{{$fb := . -}}
+    {{- if eq .Type "many-to-one" }}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+        ref{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
+      {{- end}}{{end}}
+    {{- end}}
+  {{- end}}
 }
 
 type {{.ID}}Field string

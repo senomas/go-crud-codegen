@@ -99,7 +99,7 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
-        &obj{{$fb.ID}}_{{.ID}},
+        &obj.ref{{$fb.ID}}_{{.ID}},
       {{- end}}{{end}}
     {{-  else }}
       &obj.{{.ID}},
@@ -112,8 +112,8 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
-        if obj{{$fb.ID}}_{{.ID}}.Valid {
-        	obj.CreatedBy = &User{ID: objCreatedBy_ID.Int64}
+        if obj.ref{{$fb.ID}}_{{.ID}}.Valid {
+        	obj.{{$fb.ID}} = &User{ {{.ID}}: obj.ref{{$fb.ID}}_{{.ID}}.Int64}
         }
       {{- end}}{{end}}
     {{- end}}
@@ -141,13 +141,6 @@ func (r *{{.ID}}RepositoryImpl) Get(ctx context.Context, {{template "ParamFk" . 
     FROM {{.Table}} WHERE
       {{ template "WhereFk" . }}`
   var obj {{.ID}};
-  {{- range .Fields -}}{{$fb := . -}}
-    {{- if eq .Type "many-to-one" }}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
-        {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
-      {{- end}}{{end}}
-    {{- end}}
-  {{- end}}
   err := r.db.QueryRowContext(ctx, qry, {{ template "ArgFk" . }}).Scan(
     {{- template "ScanField" . }}
   )
@@ -180,13 +173,6 @@ func (r *{{$Model.ID}}RepositoryImpl) GetBy{{.ID}}(ctx context.Context, {{templa
     FROM {{$Model.Table}} WHERE
       {{ template "WhereUnique" (dict "m" $Model "p" .) }}`
   var obj {{$Model.ID}};
-  {{- range $Model.Fields -}}{{$fb := . -}}
-    {{- if eq .Type "many-to-one" }}
-      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
-        {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
-      {{- end}}{{end}}
-    {{- end}}
-  {{- end}}
   err := r.db.QueryRowContext(ctx, qry, {{ template "ArgUnique" (dict "m" $Model "p" .) }}).Scan(
     {{- template "ScanField" $Model }}
   )
@@ -261,13 +247,6 @@ func (r *{{.ID}}RepositoryImpl) FindOne(ctx context.Context, filter []{{.ID}}Fil
   }
   if rows.Next() {
     var obj {{.ID}};
-    {{- range .Fields -}}{{$fb := . -}}
-      {{- if eq .Type "many-to-one" }}
-        {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
-          {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
-        {{- end}}{{end}}
-      {{- end}}
-    {{- end}}
     err = rows.Scan(
       {{- template "ScanField" . }}
     )
@@ -336,13 +315,6 @@ func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter
   list := []{{.ID}}{};
   for rows.Next() {
     var obj {{.ID}};
-    {{- range .Fields -}}{{$fb := . -}}
-      {{- if eq .Type "many-to-one" }}
-        {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) -}}
-          {{"\n    "}}var obj{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
-        {{- end}}{{end}}
-      {{- end}}
-    {{- end}}
     err = rows.Scan(
       {{- template "ScanField" . }}
     )

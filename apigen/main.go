@@ -43,18 +43,28 @@ func Templates() *template.Template {
 		},
 		"goType": func(fo FieldDef) string {
 			vt := fo.Type
-			switch fo.Type {
-			case "autoincrement":
-				vt = "int64"
-			case "text":
-				vt = "string"
-			case "password", "salt", "secret":
-				vt = "string"
-			case "many-to-one":
-				vt = "*" + fo.Extras["ref"].(string)
-			}
 			if fo.Null {
-				vt = "*" + vt
+				switch fo.Type {
+				case "autoincrement":
+					vt = "sql.NullInt64"
+				case "text":
+					vt = "sql.NullString"
+				case "password", "salt", "secret":
+					vt = "sql.NullString"
+				case "many-to-one":
+					vt = "*" + fo.Extras["ref"].(string)
+				}
+			} else {
+				switch fo.Type {
+				case "autoincrement":
+					vt = "int64"
+				case "text":
+					vt = "string"
+				case "password", "salt", "secret":
+					vt = "string"
+				case "many-to-one":
+					vt = "*" + fo.Extras["ref"].(string)
+				}
 			}
 			return vt
 		},

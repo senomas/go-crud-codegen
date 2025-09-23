@@ -22,6 +22,16 @@ User:
       ref: User
       refKeys:
         - ID
+      refFields:
+        - Name
+    - id: UpdatedBy
+      type: many-to-one
+      nullable: true
+      ref: User
+      refKeys:
+        - ID
+      refFields:
+        - Name
   pkeys:
     - ID
   uniques:
