@@ -37,10 +37,11 @@ type {{.ID}}RepositoryImpl struct {
 }
 
 func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, error) {
-  tx, err := r.db.BeginTx(ctx, nil)
-  if err != nil {
-    return nil, err
-  }
+  var tx *sql.Tx
+  var err error
+  var txNew bool
+  tx, err = r.db.BeginTx(ctx, nil)
+  txNew = true
   defer tx.Rollback()
   qry := `
     INSERT INTO {{.Table}} (
@@ -62,7 +63,7 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
       {{- end}}{{end}}
     {{- end}}
   {{- end}}
-  res, err := r.db.ExecContext(ctx, qry,
+  res, err := tx.ExecContext(ctx, qry,
     {{- range .Fields -}}{{$f := . -}}
       {{- if eq .Type "autoincrement" -}}
       {{- else if eq .Type "many-to-one" }}{{$fb := . }}
@@ -81,16 +82,60 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   if err != nil {
     return nil, err
   }
-  err = tx.Commit()
-  if err != nil {
-    return nil, err
+  if txNew {
+    err = tx.Commit()
+    if err != nil {
+      return nil, err
+    }
   }
   return &obj, nil
 }
 
 {{- define "SelectField" }}
-  {{- range $idx, $v := .Fields -}}
-  {{if gt $idx 0}},{{ "\n      " }}{{end}}{{.Field}}
+  {{- $Model := .}}{{$idx := 0}}{{range .Fields -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
+        {{- "obj"}}{{$fb.ID}}.{{- .Field}}
+      {{- end}}{{end}}
+    {{-  else }}
+      {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
+      {{- "obj."}}{{.Field}}
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "SelectFrom" }}
+  {{- $Model := .}}{{range .Fields -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- "("}}
+    {{- end}}
+  {{- end}}
+  {{- .Table}} obj
+  {{- $Model := .}}{{$ridx := 0}}{{range .Fields -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- if gt $ridx 0}}
+        {{- "\n      LEFT JOIN "}}
+      {{- else }}
+        {{- " LEFT JOIN "}}
+      {{- end}}{{ $ridx = add $ridx 1 }}
+      {{- (model $Model .).Table }} obj{{$fb.ID}}{{ " ON" -}}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+        {{- " " }}obj.{{$fb.Field}} = obj{{$fb.ID}}.{{.Field}}
+      {{- end}}{{end}}
+      {{- ")" }}
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "ScanFieldDef" }}
+  {{- $Model := . }}
+  {{- $idx:=0}}{{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
+        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1}}var ref{{$fb.ID}}_{{.ID}} {{goSqlNullType .}}
+      {{- end}}{{end}}
+    {{- end}}
   {{- end}}
 {{- end}}
 
@@ -99,7 +144,7 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
-        &obj.ref{{$fb.ID}}_{{.ID}},
+        &ref{{$fb.ID}}_{{.ID}},
       {{- end}}{{end}}
     {{-  else }}
       &obj.{{.ID}},
@@ -112,8 +157,8 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range $Model.Fields -}}{{if (inSlices $fb.Extras.refKeys .ID) }}
-        if obj.ref{{$fb.ID}}_{{.ID}}.Valid {
-        	obj.{{$fb.ID}} = &User{ {{.ID}}: obj.ref{{$fb.ID}}_{{.ID}}.Int64}
+        if ref{{$fb.ID}}_{{.ID}}.Valid {
+        	obj.{{$fb.ID}} = &User{ {{.ID}}: ref{{$fb.ID}}_{{.ID}}{{goSqlNullValue .}}}
         }
       {{- end}}{{end}}
     {{- end}}
@@ -123,7 +168,7 @@ func (r *{{.ID}}RepositoryImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID
 {{- define "WhereFk" }}
   {{- $Model := . }}{{ $idx := 0 -}}
   {{- range .Fields -}}{{ if (inSlices $Model.PKeys .ID) -}}
-    {{if gt $idx 0}} AND{{ "\n      " }}{{end}}{{$idx = add $idx 1}}{{.Field}} = ${{$idx}}
+    {{if gt $idx 0}} AND{{ "\n      " }}{{end}}{{$idx = add $idx 1}}obj.{{.Field}} = ${{$idx}}
   {{- end}}{{- end}}
 {{- end}}
 
@@ -138,9 +183,12 @@ func (r *{{.ID}}RepositoryImpl) Get(ctx context.Context, {{template "ParamFk" . 
   qry := `
     SELECT
       {{ template "SelectField" . }}
-    FROM {{.Table}} WHERE
+    FROM
+      {{template "SelectFrom" . }}
+    WHERE
       {{ template "WhereFk" . }}`
   var obj {{.ID}};
+  {{template "ScanFieldDef" .}}
   err := r.db.QueryRowContext(ctx, qry, {{ template "ArgFk" . }}).Scan(
     {{- template "ScanField" . }}
   )
@@ -154,7 +202,7 @@ func (r *{{.ID}}RepositoryImpl) Get(ctx context.Context, {{template "ParamFk" . 
 {{- define "WhereUnique" }}
   {{- $Model := .m }}{{ $idx := 0 -}}
   {{- $p := .p}}{{ $idx := 0}}{{range .m.Fields }}{{if (inSlices $p.Fields .ID) -}}
-    {{if gt $idx 0}} AND{{ "\n      " }}{{end}}{{$idx = add $idx 1}}{{.Field}} = ${{$idx}}
+    {{if gt $idx 0}} AND{{ "\n      " }}{{end}}{{$idx = add $idx 1}}obj.{{.Field}} = ${{$idx}}
   {{- end}}{{- end}}
 {{- end}}
 
@@ -170,9 +218,12 @@ func (r *{{$Model.ID}}RepositoryImpl) GetBy{{.ID}}(ctx context.Context, {{templa
   qry := `
     SELECT
       {{ template "SelectField" $Model }}
-    FROM {{$Model.Table}} WHERE
+    FROM
+      {{template "SelectFrom" $Model }}
+    WHERE
       {{ template "WhereUnique" (dict "m" $Model "p" .) }}`
   var obj {{$Model.ID}};
+  {{template "ScanFieldDef" $Model}}
   err := r.db.QueryRowContext(ctx, qry, {{ template "ArgUnique" (dict "m" $Model "p" .) }}).Scan(
     {{- template "ScanField" $Model }}
   )
@@ -194,13 +245,13 @@ func (r *{{$Model.ID}}RepositoryImpl) GetBy{{.ID}}(ctx context.Context, {{templa
       switch f.Op {
       case FilterOp_EQ:
         args = append(args, f.Value)
-        qfilter = append(qfilter, "{{.Field}} = ?")
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = $%d", len(args)))
       case FilterOp_Like:
         args = append(args, f.Value)
-        qfilter = append(qfilter, fmt.Sprintf("{{.Field}} LIKE $%d", len(args)))
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} LIKE $%d", len(args)))
       case FilterOp_ILike:
         args = append(args, f.Value)
-        qfilter = append(qfilter, fmt.Sprintf("{{.Field}} ILIKE $%d", len(args)))
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} ILIKE $%d", len(args)))
       default:
         return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
       }
@@ -218,7 +269,8 @@ func (r *{{.ID}}RepositoryImpl) FindOne(ctx context.Context, filter []{{.ID}}Fil
   qry := `
     SELECT
       {{ template "SelectField" . }}
-    FROM {{.Table}}`
+    FROM
+      {{template "SelectFrom" . }}`
   if len(qfilter) > 0 {
     qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
   }
@@ -229,9 +281,9 @@ func (r *{{.ID}}RepositoryImpl) FindOne(ctx context.Context, filter []{{.ID}}Fil
       {{range .Fields }}{{if eq .Type "text" -}}
       case {{$Model.ID}}Field_{{.ID}}:
         if f.Dir == SortDir_ASC {
-          sorts = append(sorts, "{{.Field}} ASC")
+          sorts = append(sorts, "obj.{{.Field}} ASC")
         } else {
-          sorts = append(sorts, "{{.Field}} DESC")
+          sorts = append(sorts, "obj.{{.Field}} DESC")
         }
       {{end}}{{end}}}
     }
@@ -247,6 +299,7 @@ func (r *{{.ID}}RepositoryImpl) FindOne(ctx context.Context, filter []{{.ID}}Fil
   }
   if rows.Next() {
     var obj {{.ID}};
+    {{template "ScanFieldDef" .}}
     err = rows.Scan(
       {{- template "ScanField" . }}
     )
@@ -263,9 +316,9 @@ func (r *{{.ID}}RepositoryImpl) FindOne(ctx context.Context, filter []{{.ID}}Fil
   {{$Model := . -}}
   SELECT COUNT(
   {{- $idx := 0}}{{range .Fields }}{{if (inSlices $Model.PKeys .ID) -}}
-    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}}
+    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}obj.{{.Field}}
   {{- end}}{{end}})
-  FROM {{.Table}}
+  FROM {{.Table}} obj
 {{- end -}}
 
 func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sort []{{.ID}}Sort, limit int, offset int64) ([]{{.ID}}, int64, error) {
@@ -285,7 +338,8 @@ func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter
   qry = `
     SELECT
       {{ template "SelectField" . }}
-    FROM {{.Table}}`
+    FROM
+      {{template "SelectFrom" . }}`
   if len(qfilter) > 0 {
     qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
   }
@@ -296,9 +350,9 @@ func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter
       {{range .Fields }}{{if eq .Type "text" -}}
       case {{$Model.ID}}Field_{{.ID}}:
         if f.Dir == SortDir_ASC {
-          sorts = append(sorts, "{{.Field}} ASC")
+          sorts = append(sorts, "obj.{{.Field}} ASC")
         } else {
-          sorts = append(sorts, "{{.Field}} DESC")
+          sorts = append(sorts, "obj.{{.Field}} DESC")
         }
       {{end}}{{end}}}
     }
@@ -315,6 +369,7 @@ func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter
   list := []{{.ID}}{};
   for rows.Next() {
     var obj {{.ID}};
+    {{template "ScanFieldDef" .}}
     err = rows.Scan(
       {{- template "ScanField" . }}
     )
@@ -328,10 +383,14 @@ func (r *{{.ID}}RepositoryImpl) Find(ctx context.Context, filter []{{.ID}}Filter
 }
 
 func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}) error {
-  tx, err := r.db.BeginTx(ctx, nil)
+  var tx *sql.Tx
+  var err error
+  var txNew bool
+  tx, err = r.db.BeginTx(ctx, nil)
   if err != nil {
     return err
   }
+  txNew = true
   defer tx.Rollback()
   qry := `{{ $idx := 1 }}
     UPDATE {{.Table}} SET
@@ -342,7 +401,7 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}) error {
       {{$fidx := $idx}}{{ range .Fields -}}{{if isPk . $Model -}}
       {{if gt $idx $fidx}},{{"\n      "}}{{end}}{{.Field}} = ${{$idx}}{{$idx = add $idx 1 -}}
       {{- end}}{{- end}}`
-  res, err := r.db.ExecContext(ctx, qry,
+  res, err := tx.ExecContext(ctx, qry,
     {{- range .Fields -}}{{if isUpdatable . $Model -}}
       {{"\n    "}}obj.{{.ID}},
     {{- end}}{{end}}
@@ -363,18 +422,28 @@ func (r *{{.ID}}RepositoryImpl) Update(ctx context.Context, obj {{.ID}}) error {
   if ra != 1 {
     return fmt.Errorf("invalid rows affected (%d)", ra)
   }
-  err = tx.Commit()
-  if err != nil {
-    return err
+  if txNew {
+    err = tx.Commit()
+    if err != nil {
+      return err
+    }
   }
   return nil
 }
 
 func (r *{{.ID}}RepositoryImpl) Delete(ctx context.Context, {{template "ParamFk" . }}) error {
+  var tx *sql.Tx
+  var err error
+  var txNew bool
+  tx, err = r.db.BeginTx(ctx, nil)
+  if err != nil {
+    return err
+  }
+  txNew = true
   qry := `
     DELETE FROM {{.Table}} WHERE
       {{ template "WhereFk" . }}`
-  res, err := r.db.ExecContext(ctx, qry, {{ template "ArgFk" .}})
+  res, err := tx.ExecContext(ctx, qry, {{ template "ArgFk" .}})
   if err != nil {
     return err
   }
@@ -387,6 +456,12 @@ func (r *{{.ID}}RepositoryImpl) Delete(ctx context.Context, {{template "ParamFk"
   }
   if ra != 1 {
     return fmt.Errorf("invalid rows affected (%d)", ra)
+  }
+  if txNew {
+    err = tx.Commit()
+    if err != nil {
+      return err
+    }
   }
   return nil
 }

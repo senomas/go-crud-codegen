@@ -24,6 +24,8 @@ User:
         - ID
       refFields:
         - Name
+    - id: CreatedAt
+      type: timestamp
     - id: UpdatedBy
       type: many-to-one
       nullable: true
@@ -32,6 +34,8 @@ User:
         - ID
       refFields:
         - Name
+    - id: UpdatedAt
+      type: timestamp
   pkeys:
     - ID
   uniques:

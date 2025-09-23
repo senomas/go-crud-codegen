@@ -44,7 +44,9 @@ func GetRepos() Repos {
 		password VARCHAR(255),
 		token VARCHAR(255),
 		created_by INTEGER,
+		created_at DATETIME,
 		updated_by INTEGER,
+		updated_at DATETIME,
 
 		FOREIGN KEY(created_by) REFERENCES app_user(id),
 		FOREIGN KEY(updated_by) REFERENCES app_user(id)

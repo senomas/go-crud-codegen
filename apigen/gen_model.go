@@ -20,6 +20,7 @@ func GenModels(tmpl *template.Template, models map[string]ModelDef, dir string) 
 			}
 			defer f.Close()
 
+			md.Extras["Models"] = models
 			err = tmpl.Execute(f, md)
 			if err != nil {
 				return err

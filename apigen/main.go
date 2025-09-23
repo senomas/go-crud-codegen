@@ -26,6 +26,31 @@ func Templates() *template.Template {
 			}
 			return m, nil
 		},
+		"model": func(m ModelDef, obj any) ModelDef {
+			if md, ok := obj.(ModelDef); ok {
+				return md
+			} else if fd, ok := obj.(FieldDef); ok {
+				if ref, ok := fd.Extras["ref"].(string); ok {
+					if models, ok := m.Extras["Models"].(map[string]ModelDef); ok {
+						if md, ok := models[ref]; ok {
+							return md
+						}
+					} else {
+						log.Fatalf("m.Extras['Models'] is not map[string]ModelDef: %T", m.Extras["Models"])
+					}
+				}
+			} else if ref, ok := obj.(string); ok {
+				if models, ok := m.Extras["Models"].(map[string]ModelDef); ok {
+					if md, ok := models[ref]; ok {
+						return md
+					}
+				} else {
+					log.Fatalf("m.Extras['Models'] is not map[string]ModelDef: %T", m.Extras["Models"])
+				}
+			}
+			log.Fatalf("model %+v not found in models", obj)
+			return ModelDef{}
+		},
 		"snakeCase": toSnakeCase,
 		"inSlices": func(v any, k string) bool {
 			if s, ok := v.([]string); ok {
@@ -51,6 +76,8 @@ func Templates() *template.Template {
 					vt = "sql.NullString"
 				case "password", "salt", "secret":
 					vt = "sql.NullString"
+				case "timestamp":
+					vt = "time.Time"
 				case "many-to-one":
 					vt = "*" + fo.Extras["ref"].(string)
 				}
@@ -62,6 +89,8 @@ func Templates() *template.Template {
 					vt = "string"
 				case "password", "salt", "secret":
 					vt = "string"
+				case "timestamp":
+					vt = "time.Time"
 				case "many-to-one":
 					vt = "*" + fo.Extras["ref"].(string)
 				}
@@ -79,6 +108,23 @@ func Templates() *template.Template {
 				vt = "sql.NullString"
 			case "many-to-one":
 				vt = "*" + fo.Extras["ref"].(string)
+			}
+			if fo.Null {
+				vt = "*" + vt
+			}
+			return vt
+		},
+		"goSqlNullValue": func(fo FieldDef) string {
+			vt := fo.Type
+			switch fo.Type {
+			case "autoincrement":
+				vt = ".Int64"
+			case "text":
+				vt = ".String"
+			case "password", "salt", "secret":
+				vt = ".String"
+			case "many-to-one":
+				vt = ""
 			}
 			if fo.Null {
 				vt = "*" + vt

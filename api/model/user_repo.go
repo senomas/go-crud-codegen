@@ -4,6 +4,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -24,10 +25,11 @@ type UserRepositoryImpl struct {
 }
 
 func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
+	var tx *sql.Tx
+	var err error
+	var txNew bool
+	tx, err = r.db.BeginTx(ctx, nil)
+	txNew = true
 	defer tx.Rollback()
 	qry := `
     INSERT INTO app_user (
@@ -37,7 +39,9 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
       password,
       token,
       created_by,
-      updated_by
+      created_at,
+      updated_by,
+      updated_at
     ) VALUES (
       $1,
       $2,
@@ -45,7 +49,9 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
       $4,
       $5,
       $6,
-      $7
+      $7,
+      $8,
+      $9
     )`
 	var objCreatedBy_ID *int64
 	if obj.CreatedBy != nil {
@@ -55,14 +61,16 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 	if obj.UpdatedBy != nil {
 		objUpdatedBy_ID = &obj.UpdatedBy.ID
 	}
-	res, err := r.db.ExecContext(ctx, qry,
+	res, err := tx.ExecContext(ctx, qry,
 		obj.Email,
 		obj.Name,
 		obj.Salt,
 		obj.Password,
 		obj.Token,
 		objCreatedBy_ID,
+		obj.CreatedAt,
 		objUpdatedBy_ID,
+		obj.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -71,9 +79,11 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 	if err != nil {
 		return nil, err
 	}
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
+	if txNew {
+		err = tx.Commit()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &obj, nil
 }
@@ -81,17 +91,24 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, obj User) (*User, error
 func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 	qry := `
     SELECT
-      id,
-      email,
-      name,
-      salt,
-      password,
-      token,
-      created_by,
-      updated_by
-    FROM app_user WHERE
-      id = $1`
+      obj.id,
+      obj.email,
+      obj.name,
+      obj.salt,
+      obj.password,
+      obj.token,
+      objCreatedBy.id,
+      obj.created_at,
+      objUpdatedBy.id,
+      obj.updated_at
+    FROM
+      ((app_user obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
+      LEFT JOIN app_user objUpdatedBy ON obj.updated_by = objUpdatedBy.id)
+    WHERE
+      obj.id = $1`
 	var obj User
+	var refCreatedBy_ID sql.NullInt64
+	var refUpdatedBy_ID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, qry, id).Scan(
 		&obj.ID,
 		&obj.Email,
@@ -99,58 +116,19 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 		&obj.Salt,
 		&obj.Password,
 		&obj.Token,
-		&obj.refCreatedBy_ID,
-		&obj.refUpdatedBy_ID,
+		&refCreatedBy_ID,
+		&obj.CreatedAt,
+		&refUpdatedBy_ID,
+		&obj.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	refs := map[string][]any{}
-	if obj.refCreatedBy_ID.Valid {
-		refs[fmt.Sprintf("%d", obj.refCreatedBy_ID.Int64)] = []any{obj.refCreatedBy_ID}
+	if refCreatedBy_ID.Valid {
+		obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
 	}
-	if obj.refUpdatedBy_ID.Valid {
-		refs[fmt.Sprintf("%d", obj.refUpdatedBy_ID.Int64)] = []any{obj.refUpdatedBy_ID}
-	}
-	if len(refs) > 0 {
-		args := []any{}
-		qry = `
-    SELECT
-      id,
-      name,
-    FROM app_user WHERE`
-		nfirst := false
-		for _, v := range refs {
-			if nfirst {
-				qry += " OR"
-			} else {
-				nfirst = true
-			}
-			qry += fmt.Sprintf("\n  id = $%d", len(args)+1)
-			args = append(args, v[0])
-		}
-		rows, err := r.db.QueryContext(ctx, qry, args...)
-		if err != nil {
-			slog.Error("Query refs", "qry:", qry, "Error:", err)
-			return nil, err
-		}
-		for rows.Next() {
-			var objRef User
-			err = rows.Scan(
-				&objRef.ID,
-				&objRef.Name,
-			)
-			if err != nil {
-				slog.Error("Scan refs", "qry:", qry, "Error:", err)
-				return nil, err
-			}
-			if obj.refCreatedBy_ID.Valid && objRef.ID == obj.refCreatedBy_ID.Int64 {
-				obj.CreatedBy = &objRef
-			}
-			if obj.refUpdatedBy_ID.Valid && objRef.ID == obj.refUpdatedBy_ID.Int64 {
-				obj.UpdatedBy = &objRef
-			}
-		}
+	if refUpdatedBy_ID.Valid {
+		obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
 	}
 	return &obj, nil
 }
@@ -158,17 +136,24 @@ func (r *UserRepositoryImpl) Get(ctx context.Context, id int64) (*User, error) {
 func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User, error) {
 	qry := `
     SELECT
-      id,
-      email,
-      name,
-      salt,
-      password,
-      token,
-      created_by,
-      updated_by
-    FROM app_user WHERE
-      name = $1`
+      obj.id,
+      obj.email,
+      obj.name,
+      obj.salt,
+      obj.password,
+      obj.token,
+      objCreatedBy.id,
+      obj.created_at,
+      objUpdatedBy.id,
+      obj.updated_at
+    FROM
+      ((app_user obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
+      LEFT JOIN app_user objUpdatedBy ON obj.updated_by = objUpdatedBy.id)
+    WHERE
+      obj.name = $1`
 	var obj User
+	var refCreatedBy_ID sql.NullInt64
+	var refUpdatedBy_ID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, qry, name).Scan(
 		&obj.ID,
 		&obj.Email,
@@ -176,17 +161,19 @@ func (r *UserRepositoryImpl) GetByName(ctx context.Context, name string) (*User,
 		&obj.Salt,
 		&obj.Password,
 		&obj.Token,
-		&obj.refCreatedBy_ID,
-		&obj.refUpdatedBy_ID,
+		&refCreatedBy_ID,
+		&obj.CreatedAt,
+		&refUpdatedBy_ID,
+		&obj.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	if obj.refCreatedBy_ID.Valid {
-		obj.CreatedBy = &User{ID: obj.refCreatedBy_ID.Int64}
+	if refCreatedBy_ID.Valid {
+		obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
 	}
-	if obj.refUpdatedBy_ID.Valid {
-		obj.UpdatedBy = &User{ID: obj.refUpdatedBy_ID.Int64}
+	if refUpdatedBy_ID.Valid {
+		obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
 	}
 	return &obj, nil
 }
@@ -200,13 +187,13 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			switch f.Op {
 			case FilterOp_EQ:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, "email = ?")
+				qfilter = append(qfilter, fmt.Sprintf("obj.email = $%d", len(args)))
 			case FilterOp_Like:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, fmt.Sprintf("email LIKE $%d", len(args)))
+				qfilter = append(qfilter, fmt.Sprintf("obj.email LIKE $%d", len(args)))
 			case FilterOp_ILike:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, fmt.Sprintf("email ILIKE $%d", len(args)))
+				qfilter = append(qfilter, fmt.Sprintf("obj.email ILIKE $%d", len(args)))
 			default:
 				return nil, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
 			}
@@ -214,13 +201,13 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			switch f.Op {
 			case FilterOp_EQ:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, "name = ?")
+				qfilter = append(qfilter, fmt.Sprintf("obj.name = $%d", len(args)))
 			case FilterOp_Like:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, fmt.Sprintf("name LIKE $%d", len(args)))
+				qfilter = append(qfilter, fmt.Sprintf("obj.name LIKE $%d", len(args)))
 			case FilterOp_ILike:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, fmt.Sprintf("name ILIKE $%d", len(args)))
+				qfilter = append(qfilter, fmt.Sprintf("obj.name ILIKE $%d", len(args)))
 			default:
 				return nil, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
 			}
@@ -230,15 +217,19 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 	}
 	qry := `
     SELECT
-      id,
-      email,
-      name,
-      salt,
-      password,
-      token,
-      created_by,
-      updated_by
-    FROM app_user`
+      obj.id,
+      obj.email,
+      obj.name,
+      obj.salt,
+      obj.password,
+      obj.token,
+      objCreatedBy.id,
+      obj.created_at,
+      objUpdatedBy.id,
+      obj.updated_at
+    FROM
+      ((app_user obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
+      LEFT JOIN app_user objUpdatedBy ON obj.updated_by = objUpdatedBy.id)`
 	if len(qfilter) > 0 {
 		qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
 	}
@@ -248,15 +239,15 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			switch f.Field {
 			case UserField_Email:
 				if f.Dir == SortDir_ASC {
-					sorts = append(sorts, "email ASC")
+					sorts = append(sorts, "obj.email ASC")
 				} else {
-					sorts = append(sorts, "email DESC")
+					sorts = append(sorts, "obj.email DESC")
 				}
 			case UserField_Name:
 				if f.Dir == SortDir_ASC {
-					sorts = append(sorts, "name ASC")
+					sorts = append(sorts, "obj.name ASC")
 				} else {
-					sorts = append(sorts, "name DESC")
+					sorts = append(sorts, "obj.name DESC")
 				}
 			}
 		}
@@ -272,6 +263,8 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 	}
 	if rows.Next() {
 		var obj User
+		var refCreatedBy_ID sql.NullInt64
+		var refUpdatedBy_ID sql.NullInt64
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
@@ -279,17 +272,19 @@ func (r *UserRepositoryImpl) FindOne(ctx context.Context, filter []UserFilter, s
 			&obj.Salt,
 			&obj.Password,
 			&obj.Token,
-			&obj.refCreatedBy_ID,
-			&obj.refUpdatedBy_ID,
+			&refCreatedBy_ID,
+			&obj.CreatedAt,
+			&refUpdatedBy_ID,
+			&obj.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
-		if obj.refCreatedBy_ID.Valid {
-			obj.CreatedBy = &User{ID: obj.refCreatedBy_ID.Int64}
+		if refCreatedBy_ID.Valid {
+			obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
 		}
-		if obj.refUpdatedBy_ID.Valid {
-			obj.UpdatedBy = &User{ID: obj.refUpdatedBy_ID.Int64}
+		if refUpdatedBy_ID.Valid {
+			obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
 		}
 		return &obj, nil
 	}
@@ -305,13 +300,13 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			switch f.Op {
 			case FilterOp_EQ:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, "email = ?")
+				qfilter = append(qfilter, fmt.Sprintf("obj.email = $%d", len(args)))
 			case FilterOp_Like:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, fmt.Sprintf("email LIKE $%d", len(args)))
+				qfilter = append(qfilter, fmt.Sprintf("obj.email LIKE $%d", len(args)))
 			case FilterOp_ILike:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, fmt.Sprintf("email ILIKE $%d", len(args)))
+				qfilter = append(qfilter, fmt.Sprintf("obj.email ILIKE $%d", len(args)))
 			default:
 				return nil, 0, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
 			}
@@ -319,13 +314,13 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			switch f.Op {
 			case FilterOp_EQ:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, "name = ?")
+				qfilter = append(qfilter, fmt.Sprintf("obj.name = $%d", len(args)))
 			case FilterOp_Like:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, fmt.Sprintf("name LIKE $%d", len(args)))
+				qfilter = append(qfilter, fmt.Sprintf("obj.name LIKE $%d", len(args)))
 			case FilterOp_ILike:
 				args = append(args, f.Value)
-				qfilter = append(qfilter, fmt.Sprintf("name ILIKE $%d", len(args)))
+				qfilter = append(qfilter, fmt.Sprintf("obj.name ILIKE $%d", len(args)))
 			default:
 				return nil, 0, fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
 			}
@@ -333,8 +328,8 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			return nil, 0, fmt.Errorf("unsupported filter field %v", f.Field)
 		}
 	}
-	qry := `SELECT COUNT(id)
-  FROM app_user`
+	qry := `SELECT COUNT(obj.id)
+  FROM app_user obj`
 	if len(qfilter) > 0 {
 		qry += " WHERE " + strings.Join(qfilter, " AND ")
 	}
@@ -346,15 +341,19 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 	}
 	qry = `
     SELECT
-      id,
-      email,
-      name,
-      salt,
-      password,
-      token,
-      created_by,
-      updated_by
-    FROM app_user`
+      obj.id,
+      obj.email,
+      obj.name,
+      obj.salt,
+      obj.password,
+      obj.token,
+      objCreatedBy.id,
+      obj.created_at,
+      objUpdatedBy.id,
+      obj.updated_at
+    FROM
+      ((app_user obj LEFT JOIN app_user objCreatedBy ON obj.created_by = objCreatedBy.id)
+      LEFT JOIN app_user objUpdatedBy ON obj.updated_by = objUpdatedBy.id)`
 	if len(qfilter) > 0 {
 		qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
 	}
@@ -364,15 +363,15 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			switch f.Field {
 			case UserField_Email:
 				if f.Dir == SortDir_ASC {
-					sorts = append(sorts, "email ASC")
+					sorts = append(sorts, "obj.email ASC")
 				} else {
-					sorts = append(sorts, "email DESC")
+					sorts = append(sorts, "obj.email DESC")
 				}
 			case UserField_Name:
 				if f.Dir == SortDir_ASC {
-					sorts = append(sorts, "name ASC")
+					sorts = append(sorts, "obj.name ASC")
 				} else {
-					sorts = append(sorts, "name DESC")
+					sorts = append(sorts, "obj.name DESC")
 				}
 			}
 		}
@@ -389,6 +388,8 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 	list := []User{}
 	for rows.Next() {
 		var obj User
+		var refCreatedBy_ID sql.NullInt64
+		var refUpdatedBy_ID sql.NullInt64
 		err = rows.Scan(
 			&obj.ID,
 			&obj.Email,
@@ -396,17 +397,19 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 			&obj.Salt,
 			&obj.Password,
 			&obj.Token,
-			&obj.refCreatedBy_ID,
-			&obj.refUpdatedBy_ID,
+			&refCreatedBy_ID,
+			&obj.CreatedAt,
+			&refUpdatedBy_ID,
+			&obj.UpdatedAt,
 		)
 		if err != nil {
 			return nil, total, err
 		}
-		if obj.refCreatedBy_ID.Valid {
-			obj.CreatedBy = &User{ID: obj.refCreatedBy_ID.Int64}
+		if refCreatedBy_ID.Valid {
+			obj.CreatedBy = &User{ID: refCreatedBy_ID.Int64}
 		}
-		if obj.refUpdatedBy_ID.Valid {
-			obj.UpdatedBy = &User{ID: obj.refUpdatedBy_ID.Int64}
+		if refUpdatedBy_ID.Valid {
+			obj.UpdatedBy = &User{ID: refUpdatedBy_ID.Int64}
 		}
 		list = append(list, obj)
 	}
@@ -414,10 +417,14 @@ func (r *UserRepositoryImpl) Find(ctx context.Context, filter []UserFilter, sort
 }
 
 func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+	var tx *sql.Tx
+	var err error
+	var txNew bool
+	tx, err = r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
+	txNew = true
 	defer tx.Rollback()
 	qry := `
     UPDATE app_user SET
@@ -425,15 +432,19 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
       name = $2,
       token = $3,
       created_by = $4,
-      updated_by = $5
+      created_at = $5,
+      updated_by = $6,
+      updated_at = $7
     WHERE
-      id = $6`
-	res, err := r.db.ExecContext(ctx, qry,
+      id = $8`
+	res, err := tx.ExecContext(ctx, qry,
 		obj.Email,
 		obj.Name,
 		obj.Token,
 		obj.CreatedBy,
+		obj.CreatedAt,
 		obj.UpdatedBy,
+		obj.UpdatedAt,
 		obj.ID,
 	)
 	if err != nil {
@@ -449,18 +460,28 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, obj User) error {
 	if ra != 1 {
 		return fmt.Errorf("invalid rows affected (%d)", ra)
 	}
-	err = tx.Commit()
-	if err != nil {
-		return err
+	if txNew {
+		err = tx.Commit()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (r *UserRepositoryImpl) Delete(ctx context.Context, id int64) error {
+	var tx *sql.Tx
+	var err error
+	var txNew bool
+	tx, err = r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	txNew = true
 	qry := `
     DELETE FROM app_user WHERE
-      id = $1`
-	res, err := r.db.ExecContext(ctx, qry, id)
+      obj.id = $1`
+	res, err := tx.ExecContext(ctx, qry, id)
 	if err != nil {
 		return err
 	}
@@ -473,6 +494,12 @@ func (r *UserRepositoryImpl) Delete(ctx context.Context, id int64) error {
 	}
 	if ra != 1 {
 		return fmt.Errorf("invalid rows affected (%d)", ra)
+	}
+	if txNew {
+		err = tx.Commit()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
