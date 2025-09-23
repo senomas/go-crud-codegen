@@ -1,0 +1,38 @@
+Role:
+  table: app_role
+  fields:
+    - id: ID
+      field: id
+      type: autoincrement
+    - id: Name
+      type: text
+    - id: Description
+      type: text
+      nullable: true
+    - id: CreatedBy
+      type: many-to-one
+      ref: User
+      refKeys:
+        - ID
+      refFields:
+        - Name
+        - Email
+    - id: CreatedAt
+      type: timestamp
+    - id: UpdatedBy
+      type: many-to-one
+      nullable: true
+      ref: User
+      refKeys:
+        - ID
+      refFields:
+        - Name
+        - Email
+    - id: UpdatedAt
+      type: timestamp
+  pkeys:
+    - ID
+  uniques:
+    - id: Name
+      fields:
+        - Name

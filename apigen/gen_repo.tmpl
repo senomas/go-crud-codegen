@@ -264,13 +264,28 @@ func (r *{{$Model.ID}}RepositoryImpl) GetBy{{.ID}}(ctx context.Context, {{templa
     case {{$m.ID}}Field_{{.ID}}:
       switch f.Op {
       case FilterOp_EQ:
-        args = append(args, f.Value)
+				var val {{goType .}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
         qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = $%d", len(args)))
       case FilterOp_Like:
-        args = append(args, f.Value)
+				var val {{goType .}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
         qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} LIKE $%d", len(args)))
       case FilterOp_ILike:
-        args = append(args, f.Value)
+				var val {{goType .}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
         qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} ILIKE $%d", len(args)))
       default:
         return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)

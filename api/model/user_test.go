@@ -2,6 +2,7 @@ package model_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -210,10 +211,11 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find users like dummy% limit 5", func(t *testing.T) {
+		bv, _ := json.Marshal("dummy%")
 		users, total, err := repos.User().Find(ctx, []model.UserFilter{{
 			Field: model.UserField_Email,
 			Op:    model.FilterOp_Like,
-			Value: "dummy%",
+			Value: json.RawMessage(bv),
 		}}, nil, 5, 0)
 		assert.NoError(t, err)
 
@@ -225,10 +227,11 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("FindOne users like dummy5% sort by name asc", func(t *testing.T) {
+		bv, _ := json.Marshal("dummy5%")
 		user, err := repos.User().FindOne(ctx, []model.UserFilter{{
 			Field: model.UserField_Email,
 			Op:    model.FilterOp_Like,
-			Value: "dummy5%",
+			Value: json.RawMessage(bv),
 		}}, []model.UserSort{{
 			Field: model.UserField_Name,
 			Dir:   model.SortDir_DESC,
@@ -244,10 +247,11 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find users like dummy% sort by name desc limit 5", func(t *testing.T) {
+		bv, _ := json.Marshal("dummy%")
 		users, total, err := repos.User().Find(ctx, []model.UserFilter{{
 			Field: model.UserField_Email,
 			Op:    model.FilterOp_Like,
-			Value: "dummy%",
+			Value: json.RawMessage(bv),
 		}}, []model.UserSort{{
 			Field: model.UserField_Name,
 			Dir:   model.SortDir_DESC,

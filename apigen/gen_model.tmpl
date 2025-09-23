@@ -25,5 +25,5 @@ type {{.ID}}Sort struct {
 type {{.ID}}Filter struct {
 	Field {{.ID}}Field  `json:"field"`
 	Op    FilterOp   `json:"op"`
-	Value string     `json:"value"`
+	Value json.RawMessage `json:"value"`
 }

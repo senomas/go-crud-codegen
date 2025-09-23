@@ -4,6 +4,7 @@ package model
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 )
 
@@ -43,7 +44,7 @@ type UserSort struct {
 }
 
 type UserFilter struct {
-	Field UserField `json:"field"`
-	Op    FilterOp  `json:"op"`
-	Value string    `json:"value"`
+	Field UserField       `json:"field"`
+	Op    FilterOp        `json:"op"`
+	Value json.RawMessage `json:"value"`
 }
