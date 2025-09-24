@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"text/template"
 )
 
 func main() {
+	gitStatus()
 	models := make(map[string]ModelDef)
 	dir, err := os.Getwd()
 	if err != nil {
@@ -30,6 +32,7 @@ func main() {
 		tmpl.Lookup("gen_repo.tmpl"),
 		tmpl.Lookup("gen_sql.tmpl"),
 	}
+	files := []string{}
 	for name, md := range models {
 		if md.Extras == nil {
 			md.Extras = make(map[string]any)
@@ -55,6 +58,7 @@ func main() {
 				if m != nil {
 					if m[1] == "" {
 						fmt.Printf("Generating file %s\n", m[2])
+						files = append(files, m[2])
 						f, err := os.Create(m[2])
 						if err != nil {
 							log.Fatal(err)
@@ -65,6 +69,7 @@ func main() {
 							f.WriteString(scanner.Text() + "\n")
 						}
 					} else {
+						files = append(files, m[2])
 						fmt.Printf("Generating file %s\n", m[2])
 						f := []*os.File{nil}
 						f[0], err = os.Create(m[2])
@@ -78,6 +83,8 @@ func main() {
 							ms := re.FindStringSubmatch(ln)
 							if ms != nil && ms[1] == m[1] {
 								f[0].Close()
+
+								files = append(files, ms[2])
 								fmt.Printf("Generating file %s\n", ms[2])
 								f[0], err = os.Create(ms[2])
 								if err != nil {
@@ -93,5 +100,20 @@ func main() {
 				}
 			}
 		}
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	out, err := exec.Command(path.Join(home, "go/bin/goimports"), "-w", ".").CombinedOutput()
+	if err != nil {
+		log.Fatalf("goimports error: %v\n%s", err, out)
+	}
+	out, err = exec.Command("gofmt", "-s", "-w", ".").CombinedOutput()
+	if err != nil {
+		log.Fatalf("gofmt error: %v\n%s", err, out)
+	}
+	for _, fn := range files {
+		diff(fn)
 	}
 }
