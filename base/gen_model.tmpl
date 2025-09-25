@@ -7,7 +7,7 @@ package {{.Package}}
 {{$Model := .}}
 type {{.ID}} struct {
   {{- range .Fields }}
-	  {{.ID}}       {{goType .}}   `json:"{{.Field}}"`
+	  {{.ID}}       {{.GoType}}   `json:"{{.Field}}"`
   {{- end}}
 }
 
@@ -19,7 +19,7 @@ const (
 	{{end}}
 )
 
-type {{.ID}}Sort struct {
+type {{.ID}}Sorting struct {
 	Field {{.ID}}Field  `json:"field"`
 	Dir   SortDir         `json:"dir"`
 }

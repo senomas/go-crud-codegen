@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	gitStatus()
+	// gitStatus()
 	models := make(map[string]ModelDef)
 	dir, err := os.Getwd()
 	if err != nil {
@@ -25,19 +25,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	tmpl := Templates()
+	dialect := "sqlite"
+	tmpl := Templates(dialect)
 
 	tmpls := []*template.Template{
-		tmpl.Lookup("gen_model.tmpl"),
-		tmpl.Lookup("gen_repo.tmpl"),
 		tmpl.Lookup("gen_sql.tmpl"),
+		tmpl.Lookup("gen_model.tmpl"),
+		tmpl.Lookup("gen_store.tmpl"),
+		tmpl.Lookup("gen_handler.tmpl"),
 	}
 	files := []string{}
 	for name, md := range models {
-		if md.Extras == nil {
-			md.Extras = make(map[string]any)
-		}
-		md.Extras["model"] = func(id string) (*ModelDef, error) {
+		md.model = func(id string) (*ModelDef, error) {
 			if m, ok := models[id]; ok {
 				return &m, nil
 			}
@@ -46,7 +45,7 @@ func main() {
 		re := regexp.MustCompile(`^(?://|--)\s+FILE(?:-([0-9a-fA-F]+))?:\s*(.+)$`)
 		for _, t := range tmpls {
 			var bb bytes.Buffer
-			err = t.Execute(&bb, md)
+			err = t.Execute(&bb, &md)
 			if err != nil {
 				log.Fatalf("Executing template for model %s: %v", name, err)
 			}

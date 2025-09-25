@@ -28,16 +28,16 @@ const (
 	SortDir_DESC SortDir = "desc"
 )
 
-type Repos interface {
-	User() UserRepository
-	Role() RoleRepository
+type Store interface {
+	User() UserStore
+	Role() RoleStore
 }
 
-type RepositoryImpl struct {
+type StoreImpl struct {
 	db *sql.DB
 }
 
-func GetRepos() Repos {
+func GetStore() Store {
 	dsn := "file:../app.db?_busy_timeout=5000&cache=shared&mode=rwc&_foreign_keys=on"
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
@@ -69,5 +69,5 @@ func GetRepos() Repos {
 		}
 	}
 
-	return &RepositoryImpl{db: db}
+	return &StoreImpl{db: db}
 }

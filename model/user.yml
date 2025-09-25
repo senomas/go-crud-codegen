@@ -23,20 +23,20 @@ User:
       ref: Role
       seq: 10
       mapTable: app_user_role
-      mapSelf:
-        - key: ID
-          field: app_user
-      mapRef:
-        - key: ID
-          field: app_role
-      mapFields:
+      mapKeys:
+        - field: app_user
+          id: ID
+      refKeys:
+        - field: app_role
+          id: ID
+      refFields:
         - Name
     - id: CreatedBy
       type: many-to-one
       ref: User
       refKeys:
         - field: created_by
-          ref: ID
+          id: ID
       refFields:
         - Name
         - Email
@@ -48,7 +48,7 @@ User:
       ref: User
       refKeys:
         - field: updated_by
-          ref: ID
+          id: ID
       refFields:
         - Name
         - Email

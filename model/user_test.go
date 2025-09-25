@@ -12,7 +12,7 @@ import (
 )
 
 func TestUserCrud(t *testing.T) {
-	repos := model.GetRepos()
+	store := model.GetStore()
 	ctx := context.Background()
 	createTime := time.Now().Add(-time.Hour * 24)
 	createTime1 := time.Now().Add(-time.Hour * 24).Add(1 * time.Second)
@@ -23,7 +23,7 @@ func TestUserCrud(t *testing.T) {
 			Name: "Admin",
 		}
 
-		res, err := repos.Role().Create(ctx, role)
+		res, err := store.Role().Create(ctx, role)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(1), res.ID)
@@ -34,7 +34,7 @@ func TestUserCrud(t *testing.T) {
 			Name: "Opr",
 		}
 
-		res, err := repos.Role().Create(ctx, role)
+		res, err := store.Role().Create(ctx, role)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(2), res.ID)
@@ -45,7 +45,7 @@ func TestUserCrud(t *testing.T) {
 			Name: "Staf",
 		}
 
-		res, err := repos.Role().Create(ctx, role)
+		res, err := store.Role().Create(ctx, role)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(3), res.ID)
@@ -60,14 +60,14 @@ func TestUserCrud(t *testing.T) {
 			CreatedAt: createTime,
 		}
 
-		res, err := repos.User().Create(ctx, user)
+		res, err := store.User().Create(ctx, user)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(1), res.ID)
 	})
 
 	t.Run("Get user Admin", func(t *testing.T) {
-		user, err := repos.User().Get(ctx, 1)
+		user, err := store.User().Get(ctx, 1)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), user.ID)
@@ -81,7 +81,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Get user Admin byName", func(t *testing.T) {
-		user, err := repos.User().GetByName(ctx, "Admin")
+		user, err := store.User().GetByName(ctx, "Admin")
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), user.ID)
@@ -100,7 +100,7 @@ func TestUserCrud(t *testing.T) {
 			UpdatedAt: updateTime,
 		}
 
-		err := repos.User().Update(ctx, user, []model.UserField{model.UserField_Email, model.UserField_UpdatedAt})
+		err := store.User().Update(ctx, user, []model.UserField{model.UserField_Email, model.UserField_UpdatedAt})
 		assert.ErrorContains(t, err, "no rows affected")
 	})
 
@@ -112,12 +112,12 @@ func TestUserCrud(t *testing.T) {
 			UpdatedAt: updateTime,
 		}
 
-		err := repos.User().Update(ctx, user, []model.UserField{model.UserField_Email, model.UserField_UpdatedAt})
+		err := store.User().Update(ctx, user, []model.UserField{model.UserField_Email, model.UserField_UpdatedAt})
 		assert.NoError(t, err)
 	})
 
 	t.Run("Get user Admin after update", func(t *testing.T) {
-		user, err := repos.User().Get(ctx, 1)
+		user, err := store.User().Get(ctx, 1)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), user.ID)
@@ -131,7 +131,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find all user", func(t *testing.T) {
-		users, total, err := repos.User().Find(ctx, nil, nil, 10, 0)
+		users, total, err := store.User().Find(ctx, nil, nil, 10, 0)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), total, "total must 1")
@@ -157,7 +157,7 @@ func TestUserCrud(t *testing.T) {
 			},
 		}
 
-		res, err := repos.User().Create(ctx, user)
+		res, err := store.User().Create(ctx, user)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(2), res.ID)
@@ -166,7 +166,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Get user Staff", func(t *testing.T) {
-		user, err := repos.User().Get(ctx, 2)
+		user, err := store.User().Get(ctx, 2)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(2), user.ID)
@@ -191,7 +191,7 @@ func TestUserCrud(t *testing.T) {
 			Name:    "Operator 1",
 		}
 
-		res, err := repos.User().Create(ctx, user)
+		res, err := store.User().Create(ctx, user)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(3), res.ID)
@@ -204,7 +204,7 @@ func TestUserCrud(t *testing.T) {
 			Name:    "Operator 2",
 		}
 
-		res, err := repos.User().Create(ctx, user)
+		res, err := store.User().Create(ctx, user)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(4), res.ID)
@@ -218,7 +218,7 @@ func TestUserCrud(t *testing.T) {
 				Name:    fmt.Sprintf("Dummy %d", i),
 			}
 
-			res, err := repos.User().Create(ctx, user)
+			res, err := store.User().Create(ctx, user)
 			assert.NoError(t, err)
 			assert.NotNil(t, res)
 			assert.Equal(t, int64(4+i), res.ID)
@@ -226,7 +226,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find all user", func(t *testing.T) {
-		users, total, err := repos.User().Find(ctx, nil, nil, 10, 0)
+		users, total, err := store.User().Find(ctx, nil, nil, 10, 0)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(27), total, "total must match")
@@ -237,7 +237,7 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find all user limit 5 offset 5", func(t *testing.T) {
-		users, total, err := repos.User().Find(ctx, nil, nil, 5, 5)
+		users, total, err := store.User().Find(ctx, nil, nil, 5, 5)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(27), total, "total must match")
@@ -249,7 +249,7 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("Find users like dummy% limit 5", func(t *testing.T) {
 		bv, _ := json.Marshal("dummy%")
-		users, total, err := repos.User().Find(ctx, []model.UserFilter{{
+		users, total, err := store.User().Find(ctx, []model.UserFilter{{
 			Field: model.UserField_Email,
 			Op:    model.FilterOp_Like,
 			Value: json.RawMessage(bv),
@@ -265,11 +265,11 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("FindOne users like dummy5% sort by name asc", func(t *testing.T) {
 		bv, _ := json.Marshal("dummy5%")
-		user, err := repos.User().FindOne(ctx, []model.UserFilter{{
+		user, err := store.User().FindOne(ctx, []model.UserFilter{{
 			Field: model.UserField_Email,
 			Op:    model.FilterOp_Like,
 			Value: json.RawMessage(bv),
-		}}, []model.UserSort{{
+		}}, []model.UserSorting{{
 			Field: model.UserField_Name,
 			Dir:   model.SortDir_DESC,
 		}})
@@ -285,11 +285,11 @@ func TestUserCrud(t *testing.T) {
 
 	t.Run("Find users like dummy% sort by name desc limit 5", func(t *testing.T) {
 		bv, _ := json.Marshal("dummy%")
-		users, total, err := repos.User().Find(ctx, []model.UserFilter{{
+		users, total, err := store.User().Find(ctx, []model.UserFilter{{
 			Field: model.UserField_Email,
 			Op:    model.FilterOp_Like,
 			Value: json.RawMessage(bv),
-		}}, []model.UserSort{{
+		}}, []model.UserSorting{{
 			Field: model.UserField_Name,
 			Dir:   model.SortDir_DESC,
 		}}, 5, 0)
