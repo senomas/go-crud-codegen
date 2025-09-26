@@ -73,7 +73,11 @@ type FieldRef struct {
 type UniqueDef struct {
 	ID      string   `yaml:"id"`
 	CFields []string `yaml:"fields,omitempty"`
-	Model   func() *ModelDef
+	model   func() *ModelDef
+}
+
+func (u *UniqueDef) Model() *ModelDef {
+	return u.model()
 }
 
 func (u *UniqueDef) Fields() []*FieldDef {

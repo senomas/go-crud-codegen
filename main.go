@@ -31,11 +31,11 @@ func main() {
 	}
 	models := make(map[string]ModelDef)
 	dir = path.Join(dir, "./model")
-	err = LoadModels(models, dir, args[2])
+	err = LoadModels(models, dir, args[3])
 	if err != nil {
 		panic(err)
 	}
-	dialect := "sqlite"
+	dialect := args[2]
 	tmpl := Templates(dialect)
 
 	tmpls := []*template.Template{

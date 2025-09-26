@@ -1,0 +1,92 @@
+{{ define "SqlTypeRef" -}}
+  {{- if eq .Type "autoincrement" }}
+    {{- "INTEGER" -}}
+  {{- else if or (eq .Type "text" "password" "salt" "secret") }}
+    {{- "VARCHAR(255)"}}
+  {{- else if or (eq .Type "int" "version") }}
+    {{- "INTEGER"}}
+  {{- else if eq .Type "timestamp" }}
+    {{- "DATETIME"}}
+  {{- else }}
+    {{- .Type}}
+  {{- end}}
+{{- end -}}
+
+{{ define "SqlType" -}}
+  {{- if eq .Type "autoincrement" }}
+    {{- "INTEGER PRIMARY KEY AUTOINCREMENT" -}}
+  {{- else }}
+    {{- template "SqlTypeRef" .}}
+  {{- end}}
+{{- end -}}
+
+{{ define "CreateTable.ManyToOne" -}}
+  {{ $idx := 1}}{{- range .Fields -}}
+    {{- $fb := .}}
+    {{- if eq .Type "many-to-one" }}
+      {{- if gt $idx 0}}{{ ",\n    " }}{{end}}{{$idx = add $idx 1}}
+      {{- "FOREIGN KEY("}}
+      {{- $fidx := 0}}{{range .RefKeys }}
+        {{- .Field}}
+        {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+      {{- end}}) REFERENCES {{.Model.Table}}(
+      {{- $fidx := 0}}{{range .RefKeys }}{{$fr := .}}
+        {{- .Ref.Field}}
+      {{- end}})
+    {{- end}}
+  {{- end}}
+{{- end -}}
+
+{{ define "CreateTable" -}}
+CREATE TABLE IF NOT EXISTS {{$Model := .}}{{ $idx := 0}}{{.Table}} (
+  {{- "\n    "}}{{range .Fields -}}
+    {{- $fb := .}}
+    {{- if eq .Type "many-to-one" }}
+      {{- $fidx := 0}}{{range .RefKeys }}{{$fr := .}}
+        {{- if eq $fidx 0}}
+          {{- if ge $idx 1}}{{ ",\n    " }}{{end}}{{$idx = add $idx 1}}
+          {{- .Field }} {{ "" }}
+          {{- template "SqlTypeRef" .Ref}}
+        {{- else}}
+          {{- if ge $idx 1}}{{ ",\n    " }}{{end}}{{$idx = add $idx 1}}
+          {{- .Ref.Field}} ({{.}})
+        {{- end}}{{$fidx = add $fidx 1}}
+      {{- end}}
+    {{- else if eq .Type "many-to-many" }}
+    {{- else }}
+      {{- if ge $idx 1}}{{ ",\n    " }}{{end}}{{$idx = add $idx 1}}
+      {{- .Field}} {{template "SqlType" .}}
+    {{- end}}
+  {{- end}}
+  {{- template "CreateTable.ManyToOne" . }}
+);
+{{- end -}}
+
+{{ define "CreateTable.Map" }}
+CREATE TABLE IF NOT EXISTS {{ $idx := 0}}{{.MapTable}} (
+    {{- $idx := 0}}{{range .MapKeys }}
+      {{- if gt $idx 0}},{{end}}{{$idx = add $idx 1}}{{ "\n    "}}{{ .Field}} {{ template "SqlTypeRef" .Ref}}
+    {{- end}}
+    {{- range .RefKeys }}
+      {{- if gt $idx 0}},{{end}}{{$idx = add $idx 1}}{{ "\n    "}}{{ .Field}} {{ template "SqlTypeRef" .Ref}}
+    {{- end}}
+    {{- ",\n    FOREIGN KEY (" -}}
+    {{$fidx := 0}}{{- range .MapKeys }}
+      {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+      {{- .Field}}
+    {{- end}}) REFERENCES {{ "" -}}
+    {{$fidx := 0}}{{- range .MapKeys }}
+      {{- if gt $fidx 0}}, {{else}}{{.Ref.Model.Table}} ({{end}}{{$fidx = add $fidx 1}}
+      {{- .Ref.Field}}
+    {{- end}})
+    {{- ",\n    FOREIGN KEY (" -}}
+    {{$fidx := 0}}{{- range .RefKeys }}
+      {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+      {{- .Field}}
+    {{- end}}) REFERENCES {{ "" -}}
+    {{$fidx := 0}}{{- range .RefKeys }}
+      {{- if gt $fidx 0}}, {{else}}{{.Ref.Model.Table}} ({{end}}{{$fidx = add $fidx 1}}
+      {{- .Ref.Field}}
+    {{- end}})
+);
+{{- end}}

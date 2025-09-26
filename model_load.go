@@ -51,7 +51,7 @@ func LoadModels(models map[string]ModelDef, dir, module string) error {
 					}
 				}
 				for i := range mo.Uniques {
-					mo.Uniques[i].Model = func() *ModelDef {
+					mo.Uniques[i].model = func() *ModelDef {
 						return &mo
 					}
 				}
