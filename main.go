@@ -13,15 +13,25 @@ import (
 )
 
 func main() {
-	// gitStatus()
-	models := make(map[string]ModelDef)
+	args := os.Args
+	fmt.Printf("crudgen %+v\n", args)
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("Working directory: %s\n", dir)
+	err = os.Chdir(args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+	gitStatus()
+	err = os.Chdir(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	models := make(map[string]ModelDef)
 	dir = path.Join(dir, "./model")
-	fmt.Printf("path %s\n", dir)
-	err = LoadModels(models, dir)
+	err = LoadModels(models, dir, args[2])
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +68,7 @@ func main() {
 					if m[1] == "" {
 						fmt.Printf("Generating file %s\n", m[2])
 						files = append(files, m[2])
-						f, err := os.Create(m[2])
+						f, err := os.Create(path.Join(args[1], m[2]))
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -71,7 +81,7 @@ func main() {
 						files = append(files, m[2])
 						fmt.Printf("Generating file %s\n", m[2])
 						f := []*os.File{nil}
-						f[0], err = os.Create(m[2])
+						f[0], err = os.Create(path.Join(args[1], m[2]))
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -85,7 +95,7 @@ func main() {
 
 								files = append(files, ms[2])
 								fmt.Printf("Generating file %s\n", ms[2])
-								f[0], err = os.Create(ms[2])
+								f[0], err = os.Create(path.Join(args[1], ms[2]))
 								if err != nil {
 									log.Fatal(err)
 								}
@@ -101,6 +111,10 @@ func main() {
 		}
 	}
 	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = os.Chdir(args[1])
 	if err != nil {
 		log.Fatal(err)
 	}

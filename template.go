@@ -30,7 +30,7 @@ func Templates(dialect string) *template.Template {
 			return m, nil
 		},
 		"snakeCase": toSnakeCase,
-	}).ParseGlob("base/*.tmpl")
+	}).ParseGlob(path.Join("base", "*.tmpl"))
 	if err != nil {
 		panic(err)
 	}

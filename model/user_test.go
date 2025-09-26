@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"hanoman.co.id/goapigen/model"
+	"hanoman.co.id/crudgen/model"
 )
 
 func TestUserCrud(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func LoadModels(models map[string]ModelDef, dir string) error {
+func LoadModels(models map[string]ModelDef, dir, module string) error {
 	fmt.Printf("LoadModels %s\n", dir)
 	err := filepath.WalkDir(dir, func(name string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -18,7 +18,7 @@ func LoadModels(models map[string]ModelDef, dir string) error {
 		}
 		if d.IsDir() {
 			if name != dir {
-				return LoadModels(models, name)
+				return LoadModels(models, name, module)
 			}
 			return nil
 		}
@@ -35,6 +35,7 @@ func LoadModels(models map[string]ModelDef, dir string) error {
 			}
 			for n, mo := range m {
 				mo.Path = path.Dir(name)
+				mo.Module = module
 				mo.ID = n
 				if n == "" {
 					mo.Package = "model"

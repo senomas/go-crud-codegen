@@ -11,60 +11,154 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+
+  "{{.Module}}/model"
 )
 
+{{- define "PathFk" -}}
+  {{ $idx := 0}}{{range .PKeys -}}
+    {{- "/{"}}{{.Field}}{{"}" -}}
+  {{- end}}
+{{- end }}
+
 func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store) {
-  mux.HandleFunc("/{{.ID}}/{id}", func(w http.ResponseWriter, r *http.Request) {
+  mux.HandleFunc("PUT /{{.ID}}", func(w http.ResponseWriter, r *http.Request) {
+    if err := {{.ID}}Create(r.Context(), store, w, r); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
+  })
+  mux.HandleFunc("GET /{{.ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
     if err := {{.ID}}Get(r.Context(), store, w, r); err != nil {
       http.Error(w, err.Error(), http.StatusInternalServerError)
     }
   })
-  mux.HandleFunc("/{{.ID}}", func(w http.ResponseWriter, r *http.Request) {
-    if err := {{.ID}}List(r.Context(), store, w, r); err != nil {
+  mux.HandleFunc("POST /{{.ID}}", func(w http.ResponseWriter, r *http.Request) {
+    if err := {{.ID}}Find(r.Context(), store, w, r); err != nil {
       http.Error(w, err.Error(), http.StatusInternalServerError)
     }
   })
+  mux.HandleFunc("PATCH /{{.ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
+    if err := {{.ID}}Update(r.Context(), store, w, r); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
+  })
+  mux.HandleFunc("DELETE /{{.ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
+    if err := {{.ID}}Delete(r.Context(), store, w, r); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
+  })
+ }
+
+func {{.ID}}Create(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
+  var obj model.{{.ID}}
+  err := json.NewDecoder(r.Body).Decode(&obj)
+  if err != nil {
+    slog.Warn("invalid body", "err", err)
+    return fmt.Errorf("invalid body")
+  }
+  res, err := store.{{.ID}}().Create(ctx, obj)
+  if err != nil {
+    slog.Warn("error create {{.ID}}", "obj", obj, "err", err)
+    return err
+  }
+	return json.NewEncoder(w).Encode(res)
 }
 
 func {{.ID}}Get(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
-  pid := r.PathValue("id")
-	id, err := strconv.ParseInt(pid, 10, 64)
+  {{range .PKeys -}}
+    p{{.Field}} := r.PathValue("{{.Field}}")
+  	{{.Field}}, err := strconv.ParseInt(p{{.Field}}, 10, 64)
+  	if err != nil {
+  		slog.Warn("invalid {{.Field}}", "{{.Field}}", p{{.Field}}, "err", err)
+  		return fmt.Errorf("invalid {{.Field}}")
+  	}
+  {{- end}}
+	obj, err := store.{{.ID}}().Get(ctx
+  {{- range .PKeys -}}
+    {{- ", "}}{{.Field -}}
+  {{- end}})
 	if err != nil {
-		slog.Warn("invalid id", "id", pid, "err", err)
-		return fmt.Errorf("invalid id")
-	}
-	obj, err := store.{{.ID}}().Get(ctx, id)
-	if err != nil {
-		slog.Warn("error get {{.ID}}", "id", id, "err", err)
+		slog.Warn("error get {{.ID}}"
+    {{- range .PKeys -}}
+      {{- ", "}}"{{.Field -}}", {{.Field -}}
+    {{- end -}}
+    , "err", err)
 		return err
 	}
 	return json.NewEncoder(w).Encode(obj)
 }
 
-func {{.ID}}List(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
-	plimit := r.URL.Query().Get("limit")
-	limit, err := strconv.Atoi(plimit)
-	if err != nil || limit <= 0 {
-		slog.Warn("invalid limit", "limit", plimit, "err", err)
-		return fmt.Errorf("invalid limit")
+func {{.ID}}Find(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
+	var obj struct {
+    Limit   int                    `json:"limit"`
+    Offset  int64                  `json:"offset"`
+		Filter  []model.{{.ID}}Filter  `json:"filter"`
+		Sorting []model.{{.ID}}Sorting `json:"sorting"`
 	}
-	poffset := r.URL.Query().Get("offset")
-	offset, err := strconv.ParseInt(poffset, 10, 64)
-	if err != nil || offset < 0 {
-		slog.Warn("invalid offset", "offset", poffset, "err", err)
-		return fmt.Errorf("invalid offset")
+	err := json.NewDecoder(r.Body).Decode(&obj)
+	if err != nil {
+		slog.Warn("invalid body", "err", err)
+		return fmt.Errorf("invalid body")
 	}
-	var filter []model.RoleFilter
-	var sorting []model.RoleSort
 	var result struct {
-		List  []model.Role `json:"list"`
+		List  []model.{{.ID}} `json:"list"`
 		Total int64        `json:"total"`
 	}
-	result.List, result.Total, err = store.Role().Find(ctx, filter, sorting, limit, offset)
+	result.List, result.Total, err = store.{{.ID}}().Find(ctx, obj.Filter, obj.Sorting, obj.Limit, obj.Offset)
 	if err != nil {
-		slog.Warn("error find Role", "filter", filter, "sorting", sorting, "limit", limit, "offset", offset, "err", err)
+		slog.Warn("error find {{.ID}}", "filter", obj.Filter, "sorting", obj.Sorting, "limit", obj.Limit, "offset", obj.Offset, "err", err)
 		return err
 	}
 	return json.NewEncoder(w).Encode(result)
 }
 
+func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
+  var obj struct {
+    Value model.{{.ID}} `json:"value"`
+    Fields []model.{{.ID}}Field `json:"fields"`
+  }
+  err := json.NewDecoder(r.Body).Decode(&obj)
+  if err != nil {
+    slog.Warn("invalid body", "err", err)
+    return fmt.Errorf("invalid body")
+  }
+  {{range .PKeys -}}
+    p{{.Field}} := r.PathValue("{{.Field}}")
+  	{{.Field}}, err := strconv.ParseInt(p{{.Field}}, 10, 64)
+  	if err != nil {
+  		slog.Warn("invalid {{.Field}}", "{{.Field}}", p{{.Field}}, "err", err)
+  		return fmt.Errorf("invalid {{.Field}}")
+  	}
+    obj.Value.{{.ID}} = {{.Field}}
+  {{- end}}
+  err = store.{{.ID}}().Update(ctx, obj.Value, obj.Fields)
+  if err != nil {
+    slog.Warn("error create {{.ID}}", "obj", obj, "err", err)
+    return err
+  }
+	return json.NewEncoder(w).Encode(obj.Value)
+}
+
+func {{.ID}}Delete(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
+  {{range .PKeys -}}
+    p{{.Field}} := r.PathValue("{{.Field}}")
+  	{{.Field}}, err := strconv.ParseInt(p{{.Field}}, 10, 64)
+  	if err != nil {
+  		slog.Warn("invalid {{.Field}}", "{{.Field}}", p{{.Field}}, "err", err)
+  		return fmt.Errorf("invalid {{.Field}}")
+  	}
+  {{- end}}
+	err = store.{{.ID}}().Delete(ctx
+  {{- range .PKeys -}}
+    {{- ", "}}{{.Field -}}
+  {{- end}})
+	if err != nil {
+		slog.Warn("error get {{.ID}}"
+    {{- range .PKeys -}}
+      {{- ", "}}"{{.Field -}}", {{.Field -}}
+    {{- end -}}
+    , "err", err)
+		return err
+	}
+	return json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}

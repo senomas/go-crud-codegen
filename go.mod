@@ -1,4 +1,4 @@
-module hanoman.co.id/goapigen
+module hanoman.co.id/crudgen
 
 go 1.25.1
 

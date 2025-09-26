@@ -10,5 +10,5 @@ test: build FORCE
 	go test -v --failfast ./...
 
 build: FORCE
-	go run .
+	go run . . hanoman.co.id/crudgen
 

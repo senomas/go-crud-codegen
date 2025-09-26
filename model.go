@@ -15,6 +15,7 @@ type ModelDef struct {
 	Path    string
 	Package string
 	model   func(id string) (*ModelDef, error)
+	Module  string
 }
 
 func (m *ModelDef) PKeys() []*FieldDef {
