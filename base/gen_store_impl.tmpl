@@ -335,6 +335,40 @@
   {{- end}}) FROM {{.Table}} obj
 {{- end -}}
 
+{{define "CreateReturning" -}}
+{{- end -}}
+
+{{define "CreateExec" -}}
+  res, err := tx.ExecContext(ctx, qry,
+   {{- range .Fields -}}{{$f := . -}}
+      {{- if eq .Type "autoincrement" -}}
+      {{- else if eq .Type "many-to-many" }}
+      {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+        {{- range .RefKeys}}
+          {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}},
+        {{- end}}
+      {{-  else }}
+        {{- "\n    "}}obj.{{.ID}},
+      {{- end}}
+    {{- end}}
+  )
+  if err != nil {
+		slog.Error("Insert", "qry:", qry, "Error:", err)
+    return nil, err
+  }
+	ra, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if ra != 1 {
+		return nil, fmt.Errorf("ERR_INSERT_FAILED")
+	}
+	obj.ID, err = res.LastInsertId()
+  if err != nil {
+    return nil, err
+  }
+{{- end -}}
+
 {{ define "StoreImpl" -}}
 func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, error) {
   var tx *sql.Tx
@@ -385,35 +419,8 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
           {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}${{$idx}}
         {{- end}}
       {{- end}}
-    )`
-  res, err := tx.ExecContext(ctx, qry,
-    {{- range .Fields -}}{{$f := . -}}
-      {{- if eq .Type "autoincrement" -}}
-      {{- else if eq .Type "many-to-many" }}
-      {{- else if eq .Type "many-to-one" }}{{$fb := . }}
-        {{- range .RefKeys}}
-          {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}},
-        {{- end}}
-      {{-  else }}
-        {{- "\n    "}}obj.{{.ID}},
-      {{- end}}
-    {{- end}}
-  )
-  if err != nil {
-		slog.Error("Insert", "qry:", qry, "Error:", err)
-    return nil, err
-  }
-	ra, err := res.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-	if ra != 1 {
-		return nil, fmt.Errorf("ERR_INSERT_FAILED")
-	}
-	obj.ID, err = res.LastInsertId()
-  if err != nil {
-    return nil, err
-  }
+    ){{ template "CreateReturning" . }}`
+  {{template "CreateExec" .}}
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-many" }}
   qry = `
@@ -436,7 +443,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
         {{- "$" }}{{ $fidx}}
       {{- end}})`
     for _, objRef := range obj.{{$f.ID}} {
-      res, err = tx.ExecContext(ctx, qry
+      res, err := tx.ExecContext(ctx, qry
         {{- range .MapKeys}}
           {{- ", obj." }}{{- .Ref.ID}}
         {{- end}}

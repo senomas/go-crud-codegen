@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"strings"
 	"text/template"
 )
 
@@ -118,11 +119,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	out, err := exec.Command(path.Join(home, "go/bin/goimports"), "-w", ".").CombinedOutput()
+	eargs := []string{"-w"}
+	for _, f := range files {
+		if strings.HasSuffix(f, ".go") {
+			eargs = append(eargs, f)
+		}
+	}
+	out, err := exec.Command(path.Join(home, "go/bin/goimports"), eargs...).CombinedOutput()
 	if err != nil {
 		log.Fatalf("goimports error: %v\n%s", err, out)
 	}
-	out, err = exec.Command("gofmt", "-s", "-w", ".").CombinedOutput()
+	out, err = exec.Command("gofmt", eargs...).CombinedOutput()
 	if err != nil {
 		log.Fatalf("gofmt error: %v\n%s", err, out)
 	}
