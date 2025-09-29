@@ -172,7 +172,7 @@
 {{- define "WhereFk" }}
   {{- $idx := 0 -}}
   {{- range .PKeys -}}
-    {{if gt $idx 0}} AND{{ "\n      " }}{{end}}{{$idx = add $idx 1}}obj.{{.Field}} = ${{$idx}}
+    {{if gt $idx 0}} AND{{ "\n      " }}{{end}}{{$idx = add $idx 1}}obj.{{.Field}} = {{ template "QryParam" $idx}}
   {{- end}}
 {{- end}}
 
@@ -185,7 +185,7 @@
 
 {{- define "WhereUnique" }}
   {{- $idx := 0}}{{range .Fields -}}
-    {{if gt $idx 0}} AND{{ "\n      " }}{{end}}{{$idx = add $idx 1}}obj.{{.Field}} = ${{$idx}}
+    {{if gt $idx 0}} AND{{ "\n      " }}{{end}}{{$idx = add $idx 1}}obj.{{.Field}} = {{ template "QryParam" $idx}}
   {{- end}}
 {{- end}}
 
@@ -302,7 +302,7 @@
           return {{$res}}err
         }
 				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = $%d", len(args)))
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = {{ template "QryParamArg" .}})
       case FilterOp_Like:
 				var val {{.GoType}}
 				err := json.Unmarshal(f.Value, &val)
@@ -310,7 +310,7 @@
           return {{$res}}err
         }
 				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} LIKE $%d", len(args)))
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} LIKE {{ template "QryParamArg" .}})
       case FilterOp_ILike:
 				var val {{.GoType}}
 				err := json.Unmarshal(f.Value, &val)
@@ -318,7 +318,7 @@
           return {{$res}}err
         }
 				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} ILIKE $%d", len(args)))
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} ILIKE {{ template "QryParamArg" .}})
       default:
         return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
       }
@@ -369,6 +369,14 @@
   }
 {{- end -}}
 
+{{ define "QryParam" -}}
+  ${{ . }}
+{{- end -}}
+
+{{ define "QryParamArg" -}}
+  $%d", len(args))
+{{- end -}}
+
 {{ define "StoreImpl" -}}
 func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, error) {
   var tx *sql.Tx
@@ -413,10 +421,10 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
         {{- else if eq .Type "many-to-many" }}
         {{- else if eq .Type "many-to-one" }}{{$fb := . }}
           {{- range .RefKeys}}
-            {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}${{$idx}}
+            {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{template "QryParam" $idx}}
           {{- end}}
         {{- else }}
-          {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}${{$idx}}
+          {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{template "QryParam" $idx}}
         {{- end}}
       {{- end}}
     ){{ template "CreateReturning" . }}`
@@ -436,11 +444,11 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
     VALUES (
       {{- $fidx := 0}}{{range .MapKeys}}
         {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
-        {{- "$" }}{{ $fidx}}
+        {{ template "QryParam" $fidx}}
       {{- end}}
       {{- range .RefKeys}}
         {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
-        {{- "$" }}{{ $fidx}}
+        {{ template "QryParam" $fidx}}
       {{- end}})`
     for _, objRef := range obj.{{$f.ID}} {
       res, err := tx.ExecContext(ctx, qry
@@ -666,7 +674,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
     {{- if eq .Type "version" -}}
       {{- "\n  "}}if len(args) > 0 { qry += "," }
       {{- "\n  "}}args = append(args, obj.{{.ID}} + 1)
-      {{- "\n  "}}qry += fmt.Sprintf("  {{.Field}} = $%d", len(args))
+      {{- "\n  "}}qry += fmt.Sprintf("  {{.Field}} = {{ template "QryParamArg" . }}
     {{- end}}
   {{- end}}
   for _, f := range fields {
@@ -675,7 +683,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
     case {{.Model.ID}}Field_{{.ID}}:
       if len(args) > 0 { qry += "," }
       args = append(args, obj.{{.ID}})
-      qry += fmt.Sprintf("  {{.Field}} = $%d", len(args))
+      qry += fmt.Sprintf("  {{.Field}} = {{ template "QryParamArg" . }}
     {{- end}}{{end}}
     default:
       return fmt.Errorf("field %v is unknown", f)
@@ -684,11 +692,11 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   qry += "\nWHERE\n"
   {{$idx := 0}}{{ range .Fields -}}{{if .IsPk -}}
     args = append(args, obj.{{.ID}})
-    qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = $%d{{$idx = add $idx 1}}", len(args))
+    qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
   {{- end}}{{- end}}
   {{ range .Fields -}}{{if eq .Type "version" -}}
     args = append(args, obj.{{.ID}})
-    qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = $%d{{$idx = add $idx 1}}", len(args))
+    qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
   {{- end}}{{- end}}
   res, err := tx.ExecContext(ctx, qry, args...)
   if err != nil {

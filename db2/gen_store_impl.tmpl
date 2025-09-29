@@ -1,0 +1,39 @@
+{{ define "QryParam" -}}
+  ?
+{{- end -}}
+
+{{ define "QryParamArg" -}}
+  ?")
+{{- end -}}
+
+{{define "CreateExec" -}}
+  res, err := tx.ExecContext(ctx, qry,
+   {{- range .Fields -}}{{$f := . -}}
+      {{- if eq .Type "autoincrement" -}}
+      {{- else if eq .Type "many-to-many" }}
+      {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+        {{- range .RefKeys}}
+          {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}},
+        {{- end}}
+      {{-  else }}
+        {{- "\n    "}}obj.{{.ID}},
+      {{- end}}
+    {{- end}}
+  )
+  if err != nil {
+		slog.Error("Insert", "qry:", qry, "Error:", err)
+    return nil, err
+  }
+	ra, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if ra != 1 {
+		return nil, fmt.Errorf("ERR_INSERT_FAILED")
+	}
+  err = tx.QueryRowContext(ctx, "SELECT IDENTITY_VAL_LOCAL() FROM SYSIBM.SYSDUMMY1").Scan(&obj.ID)
+  if err != nil {
+    return nil, err
+  }
+{{- end -}}
+

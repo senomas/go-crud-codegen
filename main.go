@@ -125,6 +125,12 @@ func main() {
 			eargs = append(eargs, f)
 		}
 	}
+	if _, err = os.Stat(path.Join(home, "go/bin/goimports")); os.IsNotExist(err) {
+		out, err := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest").CombinedOutput()
+		if err != nil {
+			log.Fatalf("go install goimports error: %v\n%s", err, out)
+		}
+	}
 	out, err := exec.Command(path.Join(home, "go/bin/goimports"), eargs...).CombinedOutput()
 	if err != nil {
 		log.Fatalf("goimports error: %v\n%s", err, out)
