@@ -20,6 +20,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if _, err = os.Stat(path.Join(home, "go/bin/goimports")); os.IsNotExist(err) {
+		out, err := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest").CombinedOutput()
+		if err != nil {
+			log.Fatalf("go install goimports error: %v\n%s", err, out)
+		}
+	}
+	if _, err = os.Stat(path.Join(home, "go/bin/goimports")); os.IsNotExist(err) {
+		log.Fatalf("goimports not found at %s", path.Join(home, "go/bin/goimports"))
+	}
 	fmt.Printf("Working directory: %s\n", dir)
 	err = os.Chdir(args[1])
 	if err != nil {
@@ -110,10 +123,6 @@ func main() {
 				}
 			}
 		}
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
 	}
 	err = os.Chdir(args[1])
 	if err != nil {

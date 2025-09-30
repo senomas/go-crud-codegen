@@ -680,11 +680,20 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   for _, f := range fields {
     switch f {
     {{- range .Fields}}{{if .IsUpdatable }}
-    case {{.Model.ID}}Field_{{.ID}}:
-      if len(args) > 0 { qry += "," }
-      args = append(args, obj.{{.ID}})
-      qry += fmt.Sprintf("  {{.Field}} = {{ template "QryParamArg" . }}
-    {{- end}}{{end}}
+    {{- if eq .Type "many-to-one" }}
+      case {{.Model.ID}}Field_{{.ID}}:
+        {{- $f := .}}{{range .RefKeys}}
+        if len(args) > 0 { qry += "," }
+        args = append(args, obj.{{$f.ID}}.{{.ID}})
+        qry += fmt.Sprintf("  {{.Field}} = {{ template "QryParamArg" . }}
+        {{- end}}
+    {{- else if eq .Type "many-to-many" }}
+    {{- else }}
+      case {{.Model.ID}}Field_{{.ID}}:
+        if len(args) > 0 { qry += "," }
+        args = append(args, obj.{{.ID}})
+        qry += fmt.Sprintf("  {{.Field}} = {{ template "QryParamArg" . }}
+    {{- end}}{{end}}{{end}}
     default:
       return fmt.Errorf("field %v is unknown", f)
     }
