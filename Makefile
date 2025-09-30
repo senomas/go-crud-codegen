@@ -5,10 +5,8 @@ SHELL := /bin/bash
 
 RUN_TARGET ?= test
 
-test: build FORCE
+test: FORCE
 	rm -rf app.db
+	go run -C ../crud-codegen/ . $(shell pwd) sqlite hanoman.co.id/crudgen
 	go test -v --failfast ./...
-
-build: FORCE
-	go run . . hanoman.co.id/crudgen
 

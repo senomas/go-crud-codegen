@@ -33,11 +33,11 @@ func gitStatus() {
 				ln := scanner.Text()
 				if strings.Contains(ln, "DO NOT EDIT") {
 					clean = false
-					fmt.Printf("MODIFIED: %s\n", ln)
+					fmt.Printf("MODIFIED: %s\n", fn)
 				}
 			} else {
 				clean = false
-				fmt.Printf("MODIFIED: %s\n", ln)
+				fmt.Printf("MODIFIED: %s\n", fn)
 			}
 		}
 	}
@@ -85,7 +85,7 @@ func diff(file string) {
 			if strings.Contains(estr, "did not match any file") {
 				// ignore
 			} else {
-				log.Fatalf("Restoring file %s: xxx%vxxx\nyyy%syyy", file, err, estr)
+				log.Fatalf("Restoring file %s: %v\n%s", file, err, estr)
 			}
 		}
 		scanner := bufio.NewScanner(bytes.NewBuffer(out))
