@@ -11,8 +11,6 @@ User:
       type: version
     - id: Name
       type: text
-    - id: Salt
-      type: salt
     - id: Password
       type: password
     - id: Token

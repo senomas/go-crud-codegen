@@ -38,7 +38,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	gitStatus()
+	if os.Getenv("GIT_CHECK") != "F" {
+		gitStatus()
+	}
 	err = os.Chdir(dir)
 	if err != nil {
 		log.Fatal(err)

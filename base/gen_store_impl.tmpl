@@ -343,11 +343,13 @@
    {{- range .Fields -}}{{$f := . -}}
       {{- if eq .Type "autoincrement" -}}
       {{- else if eq .Type "many-to-many" }}
-      {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- else if eq .Type "many-to-one" }}
         {{- range .RefKeys}}
           {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}},
         {{- end}}
-      {{-  else }}
+      {{- else if eq .Type "password" }}
+        {{- "\n    "}}obj_{{.ID}},
+      {{- else }}
         {{- "\n    "}}obj.{{.ID}},
       {{- end}}
     {{- end}}
@@ -400,6 +402,11 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
         {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}} = {{ .Ref.GoSqlNullType }}{ Valid: false }
         {{- "\n  "}}}
       {{- end}}
+    {{- else if eq .Type "password" }}
+      obj_{{.ID}}, err := HashPassword(obj.{{.ID}})
+      if err != nil {
+        return nil, err
+      }
     {{- end}}
   {{- end}}
   qry := `
@@ -731,6 +738,63 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   }
   return nil
 }
+
+{{- range .Fields}}{{if eq .Type "password"}}
+func (r *{{.Model.ID}}StoreImpl) Update{{.ID}}(ctx context.Context, {{template "ParamFkVersion" .Model }}, value string) error {
+  var tx *sql.Tx
+  var err error
+  var txNew bool
+  tx, err = r.db.BeginTx(ctx, nil)
+  if err != nil {
+    return err
+  }
+  txNew = true
+  defer tx.Rollback()
+  args := []any{}
+  password, err := HashPassword(value)
+  if err != nil {
+    return err
+  }
+  qry := `UPDATE {{.Model.Table}} SET `
+  {{- range .Model.Fields }}{{if eq .Type "password" }}
+    if len(args) > 0 { qry += ", " }
+    args = append(args, password)
+    qry += fmt.Sprintf("{{.Field}} = {{ template "QryParamArg" . }}
+  {{- end}}{{- end}}
+  qry += ` WHERE `
+  {{$idx := 0}}{{ range .Model.Fields -}}{{if .IsPk -}}
+    args = append(args, {{.Field}})
+    qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
+  {{- end}}{{- end}}
+  {{ range .Model.Fields -}}{{if eq .Type "version" -}}
+    args = append(args, {{.Field}})
+    qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
+  {{- end}}{{- end}}
+  res, err := tx.ExecContext(ctx, qry, args...)
+  if err != nil {
+    slog.Error("Update", "qry:", qry, "Error:", err)
+    return err
+  }
+  ra, err := res.RowsAffected()
+  if err != nil {
+    slog.Error("Update", "qry:", qry, "args:", args, "Error:", err)
+    return err
+  }
+  if ra == 0 {
+    return fmt.Errorf("no rows affected")
+  }
+  if ra != 1 {
+    return fmt.Errorf("invalid rows affected (%d)", ra)
+  }
+  if txNew {
+    err = tx.Commit()
+    if err != nil {
+      return err
+    }
+  }
+  return nil
+}
+{{- end}}{{end}}
 
 func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}) error {
   var tx *sql.Tx

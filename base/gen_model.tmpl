@@ -4,7 +4,6 @@
 
 package {{.Package}}
 
-{{$Model := .}}
 type {{.ID}} struct {
   {{- range .Fields }}
 	  {{.ID}}       {{.GoType}}   `json:"{{.Field}}"`
@@ -15,7 +14,7 @@ type {{.ID}}Field string
 
 const (
 	{{range .Fields -}}
-	{{$Model.ID}}Field_{{.ID}}       {{$Model.ID}}Field = "{{.Field}}"
+	{{.Model.ID}}Field_{{.ID}}       {{.Model.ID}}Field = "{{.Field}}"
 	{{end}}
 )
 
@@ -29,3 +28,10 @@ type {{.ID}}Filter struct {
 	Op    FilterOp   `json:"op"`
 	Value json.RawMessage `json:"value"`
 }
+
+{{range .Fields }}{{if eq .Type "password" -}}
+func (m *{{.Model.ID}}) Verify{{.ID}}(value string) (bool, error) {
+  return VerifyPassword(value, m.{{.ID}})
+}
+{{end}}{{end -}}
+

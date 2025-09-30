@@ -12,7 +12,7 @@ func (f *FieldDef) GoType() string {
 			vt = "sql.NullInt64"
 		case "text":
 			vt = "sql.NullString"
-		case "password", "salt", "secret":
+		case "password", "secret":
 			vt = "sql.NullString"
 		case "timestamp":
 			vt = "time.Time"
@@ -29,7 +29,7 @@ func (f *FieldDef) GoType() string {
 			vt = "int64"
 		case "text":
 			vt = "string"
-		case "password", "salt", "secret":
+		case "password", "secret":
 			vt = "string"
 		case "timestamp":
 			vt = "time.Time"
@@ -51,7 +51,7 @@ func (f *FieldDef) GoSqlNullType() string {
 		vt = "sql.NullInt64"
 	case "text":
 		vt = "sql.NullString"
-	case "password", "salt", "secret":
+	case "password", "secret":
 		vt = "sql.NullString"
 	case "many-to-one":
 		vt = "*" + f.Ref
@@ -71,7 +71,7 @@ func (f *FieldDef) GoSqlNullValue() string {
 		vt = "Int64"
 	case "text":
 		vt = "String"
-	case "password", "salt", "secret":
+	case "password", "secret":
 		vt = "String"
 	case "many-to-one":
 		vt = ""
@@ -87,7 +87,7 @@ func (f *FieldDef) IsPk() bool {
 }
 
 func (f *FieldDef) IsUpdatable() bool {
-	if f.Type == "password" || f.Type == "salt" || f.Type == "version" {
+	if f.Type == "password" || f.Type == "version" {
 		return false
 	}
 	return !slices.Contains(f.Model().CPKeys, f.ID)

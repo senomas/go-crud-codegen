@@ -15,7 +15,9 @@
         {{- range .RefKeys}}
           {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}},
         {{- end}}
-      {{-  else }}
+      {{- else if eq .Type "password" }}
+        {{- "\n    "}}obj_{{.ID}},
+      {{- else }}
         {{- "\n    "}}obj.{{.ID}},
       {{- end}}
     {{- end}}

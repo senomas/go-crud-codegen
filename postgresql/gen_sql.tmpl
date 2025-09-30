@@ -5,7 +5,7 @@
 {{ define "SqlTypeRef" -}}
   {{- if eq .Type "autoincrement" }}
     {{- "INTEGER" -}}
-  {{- else if or (eq .Type "text" "password" "salt" "secret") }}
+  {{- else if or (eq .Type "text" "password" "secret") }}
     {{- "TEXT"}}
   {{- else if or (eq .Type "int" "version") }}
     {{- "INTEGER"}}

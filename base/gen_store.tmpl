@@ -25,6 +25,9 @@ type {{.ID}}Store interface {
   FindOne(ctx context.Context, filter []{{.ID}}Filter, sorting []{{.ID}}Sorting) (*{{.ID}}, error)
   Find(ctx context.Context, filter []{{.ID}}Filter, sorting []{{.ID}}Sorting, limit int, offset int64) ([]{{.ID}}, int64, error)
   Update(ctx context.Context, obj {{.ID}}, fields []{{.ID}}Field) error
+  {{- range .Fields }}{{if eq .Type "password"}}
+  Update{{.ID}}(ctx context.Context, {{template "ParamFkVersion" .Model }}, value string) error
+  {{- end}}{{end}}
   Delete(ctx context.Context, {{template "ParamFk" . }}) error
 }
 
@@ -37,6 +40,15 @@ type {{.ID}}StoreImpl struct {
   {{ $idx := 0}}{{range .PKeys -}}
     {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType}}
   {{- end}}
+{{- end -}}
+
+{{- define "ParamFkVersion" -}}
+  {{ $idx := 0}}{{range .PKeys -}}
+    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType}}
+  {{- end}}
+  {{- range .Fields }}{{if eq .Type "version" -}}
+    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType}}
+  {{- end}}{{end}}
 {{- end -}}
 
 {{- define "ParamUnique" -}}
