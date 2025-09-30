@@ -23,8 +23,22 @@ func gitStatus() {
 		if strings.HasSuffix(ln, "_test.go") {
 			// skip
 		} else {
-			clean = false
-			fmt.Printf("MODIFIED: %s\n", ln)
+			fn := strings.SplitN(strings.Trim(ln, " "), " ", 2)[1]
+			data, err := os.ReadFile(fn)
+			if err != nil {
+				log.Fatalf("Reading file [%s]: %v", fn, err)
+			}
+			scanner := bufio.NewScanner(bytes.NewBuffer(data))
+			if scanner.Scan() {
+				ln := scanner.Text()
+				if strings.Contains(ln, "DO NOT EDIT") {
+					clean = false
+					fmt.Printf("MODIFIED: %s\n", ln)
+				}
+			} else {
+				clean = false
+				fmt.Printf("MODIFIED: %s\n", ln)
+			}
 		}
 	}
 	if !clean {
@@ -67,7 +81,12 @@ func diff(file string) {
 	if !changed {
 		out, err := exec.Command("git", "--no-pager", "restore", "--source=HEAD", "--staged", "--worktree", "--", file).CombinedOutput()
 		if err != nil {
-			log.Fatalf("Restoring file %s: %v\n%s", file, err, out)
+			estr := string(out)
+			if strings.Contains(estr, "did not match any file") {
+				// ignore
+			} else {
+				log.Fatalf("Restoring file %s: xxx%vxxx\nyyy%syyy", file, err, estr)
+			}
 		}
 		scanner := bufio.NewScanner(bytes.NewBuffer(out))
 		for scanner.Scan() {

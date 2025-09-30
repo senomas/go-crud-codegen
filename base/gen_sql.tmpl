@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS {{$Model := .}}{{ $idx := 0}}{{.Table}} (
 );
 {{- end -}}
 
+{{ define "DropTable" -}}
+DROP TABLE IF EXISTS {{$Model := .}}{{ $idx := 0}}{{.Table}};
+{{- end -}}
+
 {{ define "CreateTable.Map" }}
 CREATE TABLE IF NOT EXISTS {{ $idx := 0}}{{.MapTable}} (
     {{- $idx := 0}}{{range .MapKeys }}
@@ -90,3 +94,8 @@ CREATE TABLE IF NOT EXISTS {{ $idx := 0}}{{.MapTable}} (
     {{- end}})
 );
 {{- end}}
+
+{{ define "DropTable.Map" }}
+DROP TABLE IF EXISTS {{ $idx := 0}}{{.MapTable}};
+{{- end}}
+ 
