@@ -695,6 +695,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
         qry += fmt.Sprintf("  {{.Field}} = {{ template "QryParamArg" . }}
         {{- end}}
     {{- else if eq .Type "many-to-many" }}
+      case {{.Model.ID}}Field_{{.ID}}:
     {{- else }}
       case {{.Model.ID}}Field_{{.ID}}:
         if len(args) > 0 { qry += "," }
@@ -730,6 +731,128 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   if ra != 1 {
     return fmt.Errorf("invalid rows affected (%d)", ra)
   }
+  {{- range .Fields }}{{if eq .Type "many-to-many" }}
+    args = []any{}
+    qry = `SELECT {{$idx := 0}}{{range .RefKeys -}}
+      {{if gt $idx 0}}, {{end}} {{.Field}}
+    {{- end}} FROM {{.MapTable}} WHERE`
+    {{$idx := 0}}{{range .MapKeys -}}
+      qry += fmt.Sprintf("{{if gt $idx 0}} AND {{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
+      args = append(args, obj.{{.Ref.ID}})
+    {{- end}}
+    rows, err := tx.QueryContext(ctx, qry, args...)
+    if err != nil {
+      slog.Error("Query {{.MapTable}}", "qry:", qry, "Error:", err)
+      return err
+    }
+    add_{{.ID}} := []*{{.Ref}}{}
+    del_{{.ID}} := []*{{.Ref}}{}
+    cur_{{.ID}} := []*{{.Ref}}{}
+    for rows.Next() {
+      var mobj {{.Ref}};
+      err = rows.Scan(
+        {{range .RefKeys -}}
+          &mobj.{{.Ref.ID}},
+        {{- end}}
+      )
+      if err != nil {
+        slog.Error("Scan {{.Ref}}", "Error:", err)
+        return err
+      }
+      cur_{{.ID}} = append(cur_{{.ID}}, &mobj)
+    }
+    for _, mobj := range obj.{{.ID}} {
+      found := false
+      for _, objRef := range cur_{{.ID}} {
+        if {{range .RefKeys -}}
+          objRef.{{.ID}} == mobj.{{.ID}} &&
+        {{- end}} true {
+          found = true
+          break
+        }
+      }
+      if !found {
+        add_{{.ID}} = append(add_{{.ID}}, &mobj)
+      }
+    }
+    for _, mobj := range cur_{{.ID}} {
+      found := false
+      for _, objRef := range obj.{{.ID}} {
+        if {{range .RefKeys -}}
+          objRef.{{.ID}} == mobj.{{.ID}} &&
+        {{- end}} true {
+          found = true
+          break
+        }
+      }
+      if !found {
+        del_{{.ID}} = append(del_{{.ID}}, mobj)
+      }
+    }
+    for _, mobj := range del_{{.ID}} {
+      args = []any{}
+      qry = `DELETE FROM {{.MapTable}} WHERE`
+      {{- $idx := 0}}{{range .MapKeys }}
+        qry += fmt.Sprintf("{{if gt $idx 0}} AND{{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
+        args = append(args, obj.{{.Ref.ID}})
+      {{- end}}
+      {{- range .RefKeys }}
+        qry += fmt.Sprintf("{{if gt $idx 0}} AND{{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
+        args = append(args, mobj.{{.Ref.ID}})
+      {{- end}}
+      res, err := tx.ExecContext(ctx, qry, args...)
+      if err != nil {
+        slog.Error("Delete {{.MapTable}}", "qry:", qry, "Error:", err)
+        return err
+      }
+    	ra, err := res.RowsAffected()
+    	if err != nil {
+    		return err
+    	}
+    	if ra != 1 {
+    		return fmt.Errorf("ERR_DELETE_FAILED")
+    	}
+    }
+    for _, mobj := range add_{{.ID}} {
+      args = []any{}
+      qry = `INSERT INTO {{.MapTable}} (
+        {{- $fidx := 0}}{{range .MapKeys -}}
+          {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+          {{- .Field}}
+        {{- end}}
+        {{- range .RefKeys}}
+          {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+          {{- .Field}}
+        {{- end}})
+      VALUES (
+        {{- $fidx := 0}}{{range .MapKeys}}
+          {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+          {{ template "QryParam" $fidx}}
+        {{- end}}
+        {{- range .RefKeys}}
+          {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+          {{ template "QryParam" $fidx}}
+        {{- end}})`
+      {{- range .MapKeys}}
+        args = append(args, obj.{{.Ref.ID}})
+      {{- end}}
+      {{- range .RefKeys}}
+        args = append(args, mobj.{{.Ref.ID}})
+      {{- end}}
+      res, err := tx.ExecContext(ctx, qry, args...)
+      if err != nil {
+        slog.Error("Insert {{.MapTable}}", "qry:", qry, "Error:", err)
+        return err
+      }
+    	ra, err := res.RowsAffected()
+    	if err != nil {
+    		return err
+    	}
+    	if ra != 1 {
+    		return fmt.Errorf("ERR_INSERT_FAILED")
+    	}
+    }
+  {{- end}}{{end}}
   if txNew {
     err = tx.Commit()
     if err != nil {
