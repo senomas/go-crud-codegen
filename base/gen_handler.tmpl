@@ -21,28 +21,48 @@ import (
   {{- end}}
 {{- end }}
 
-func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store) {
+func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store, access AccessPermission) {
   mux.HandleFunc("PUT /{{.ID}}", func(w http.ResponseWriter, r *http.Request) {
+    if !access(r, AccessActionCreate) {
+      writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      return
+    }
     if err := {{.ID}}Create(r.Context(), store, w, r); err != nil {
       writeError(w, http.StatusInternalServerError, err)
     }
   })
   mux.HandleFunc("GET /{{.ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
+    if !access(r, AccessActionRead) {
+      writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      return
+    }
     if err := {{.ID}}Get(r.Context(), store, w, r); err != nil {
       writeError(w, http.StatusInternalServerError, err)
     }
   })
   mux.HandleFunc("POST /{{.ID}}", func(w http.ResponseWriter, r *http.Request) {
+    if !access(r, AccessActionRead) {
+      writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      return
+    }
     if err := {{.ID}}Find(r.Context(), store, w, r); err != nil {
       writeError(w, http.StatusInternalServerError, err)
     }
   })
   mux.HandleFunc("PATCH /{{.ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
+    if !access(r, AccessActionUpdate) {
+      writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      return
+    }
     if err := {{.ID}}Update(r.Context(), store, w, r); err != nil {
       writeError(w, http.StatusInternalServerError, err)
     }
   })
   mux.HandleFunc("DELETE /{{.ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
+    if !access(r, AccessActionDelete) {
+      writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      return
+    }
     if err := {{.ID}}Delete(r.Context(), store, w, r); err != nil {
       writeError(w, http.StatusInternalServerError, err)
     }
@@ -157,7 +177,7 @@ func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter
   {{- end}}
   err = store.{{.ID}}().Update(ctx, obj.Value, obj.Fields)
   if err != nil {
-    slog.Warn("error create {{.ID}}", "obj", obj, "err", err)
+    slog.Warn("error update {{.ID}}", "obj", obj, "err", err)
     return err
   }
 	return json.NewEncoder(w).Encode(obj.Value)

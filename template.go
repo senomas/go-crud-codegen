@@ -9,7 +9,7 @@ import (
 	"unicode"
 )
 
-func Templates(dialect string) *template.Template {
+func Templates(dir, dialect string) *template.Template {
 	tmpl, err := template.New("tmpl").Funcs(template.FuncMap{
 		"add": func(a, b int) int { return a + b },
 		"now": func() string {
@@ -30,11 +30,11 @@ func Templates(dialect string) *template.Template {
 			return m, nil
 		},
 		"snakeCase": toSnakeCase,
-	}).ParseGlob(path.Join("base", "*.tmpl"))
+	}).ParseGlob(path.Join(dir, "base", "*.tmpl"))
 	if err != nil {
 		panic(err)
 	}
-	tmpl, err = tmpl.ParseGlob(path.Join(dialect, "*.tmpl"))
+	tmpl, err = tmpl.ParseGlob(path.Join(dir, dialect, "*.tmpl"))
 	if err != nil {
 		panic(err)
 	}

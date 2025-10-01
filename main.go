@@ -16,10 +16,7 @@ import (
 func main() {
 	args := os.Args
 	fmt.Printf("crudgen %+v\n", args)
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
+	dir := args[1]
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
@@ -34,16 +31,8 @@ func main() {
 		log.Fatalf("goimports not found at %s", path.Join(home, "go/bin/goimports"))
 	}
 	fmt.Printf("Working directory: %s\n", dir)
-	err = os.Chdir(args[1])
-	if err != nil {
-		log.Fatal(err)
-	}
 	if os.Getenv("GIT_CHECK") != "F" {
 		gitStatus()
-	}
-	err = os.Chdir(dir)
-	if err != nil {
-		log.Fatal(err)
 	}
 	models := make(map[string]ModelDef)
 	dir = path.Join(dir, "./model")
@@ -52,7 +41,7 @@ func main() {
 		panic(err)
 	}
 	dialect := args[2]
-	tmpl := Templates(dialect)
+	tmpl := Templates(".", dialect)
 
 	tmpls := []*template.Template{
 		tmpl.Lookup("gen_sql.tmpl"),
