@@ -6,7 +6,7 @@
   {{- if eq .Type "autoincrement" }}
     {{- "INTEGER" -}}
   {{- else if or (eq .Type "text" "password" "secret") }}
-    {{- "VARCHAR(254)"}}
+    {{- "VARCHAR(1023)"}}
   {{- else if or (eq .Type "int" "version") }}
     {{- "INTEGER"}}
   {{- else if eq .Type "timestamp" }}
