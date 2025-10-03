@@ -11,6 +11,8 @@
     {{- "INTEGER"}}
   {{- else if eq .Type "timestamp" }}
     {{- "TIMESTAMP"}}
+  {{- else if eq .Type "json" }}
+    {{- "CLOB"}}
   {{- else }}
     {{- .Type}}
   {{- end}}

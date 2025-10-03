@@ -12,6 +12,8 @@ func (f *FieldDef) GoType() string {
 			vt = "sql.NullInt64"
 		case "text":
 			vt = "sql.NullString"
+		case "json":
+			vt = "sql.NullString"
 		case "password", "secret":
 			vt = "sql.NullString"
 		case "timestamp":
@@ -28,6 +30,8 @@ func (f *FieldDef) GoType() string {
 		case "version":
 			vt = "int64"
 		case "text":
+			vt = "string"
+		case "json":
 			vt = "string"
 		case "password", "secret":
 			vt = "string"
@@ -51,6 +55,8 @@ func (f *FieldDef) GoSqlNullType() string {
 		vt = "sql.NullInt64"
 	case "text":
 		vt = "sql.NullString"
+	case "json":
+		vt = "sql.NullString"
 	case "password", "secret":
 		vt = "sql.NullString"
 	case "many-to-one":
@@ -70,6 +76,8 @@ func (f *FieldDef) GoSqlNullValue() string {
 	case "version":
 		vt = "Int64"
 	case "text":
+		vt = "String"
+	case "json":
 		vt = "String"
 	case "password", "secret":
 		vt = "String"
