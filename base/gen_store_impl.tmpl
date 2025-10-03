@@ -630,14 +630,17 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
     sorts := []string{}
     for _, f := range sorting {
       switch f.Field {
-      {{range .Fields }}{{if eq .Type "text" -}}
+      {{range .Fields }}{{if eq .Type "text" "int" "autoincrement" -}}
       case {{.Model.ID}}Field_{{.ID}}:
         if f.Dir == SortDir_ASC {
           sorts = append(sorts, "obj.{{.Field}} ASC")
         } else {
           sorts = append(sorts, "obj.{{.Field}} DESC")
         }
-      {{end}}{{end}}}
+      {{end}}{{end}}
+      default:
+        return nil, 0, fmt.Errorf("field %v is unsorted", f)
+      }
     }
     if len(sorts) > 0 {
       qry += "\n  ORDER BY " + strings.Join(sorts, ", ")

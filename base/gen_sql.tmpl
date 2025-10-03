@@ -16,7 +16,7 @@
   {{- if eq .Type "autoincrement" }}
     {{- "INTEGER PRIMARY KEY AUTOINCREMENT" -}}
   {{- else }}
-    {{- template "SqlTypeRef" .}}
+    {{- template "SqlTypeRef" .}}{{ if not .Null }} NOT NULL {{end}}
   {{- end}}
 {{- end -}}
 
