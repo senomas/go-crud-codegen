@@ -1,0 +1,253 @@
+{{ define "StoreImplGet" -}}
+func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (*{{.ID}}, error) {
+  qry := `
+    SELECT
+      {{ template "GetSelectField" . }}
+    FROM
+      {{template "GetSelectFrom" . }}
+    WHERE
+      {{ template "WhereFk" . }}`
+  var obj {{.ID}};
+  {{template "GetScanFieldDef" .}}
+  slog.Debug("{{.ID}}.Get", slog.String("qry", qry),
+    {{- range .PKeys -}}
+      {{.GoLogType}}("{{.Field}}", {{.Field}}),
+    {{- end -}}
+  )
+  rows, err := r.db.QueryContext(ctx, qry, {{ template "ArgFk" . }})
+  if err != nil {
+		slog.Error("Query", "qry", qry, "Error", err)
+		return nil, err
+	}
+  defer rows.Close()
+	if rows.Next() {
+		err = rows.Scan(
+      {{- template "GetScanField" . }}
+    )
+    if err != nil {
+      return nil, err
+    }
+    {{- template "GetScanFieldRef" .}}
+    {{- template "GetScanFieldManyRef" .}}
+    for rows.Next() {
+  		err = rows.Scan(
+        {{- template "GetScanField" . }}
+      )
+      if err != nil {
+        return nil, err
+      }
+      {{- template "GetScanFieldManyRef" .}}
+    }
+  }
+  return &obj, nil
+}
+
+{{range .Uniques -}}
+func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "ParamUnique" . }}) (*{{.Model.ID}}, error) {
+  qry := `
+    SELECT
+      {{ template "GetSelectField" .Model }}
+    FROM
+      {{template "GetSelectFrom" .Model }}
+    WHERE
+      {{ template "WhereUnique" . }}`
+  var obj {{.Model.ID}};
+  {{template "GetScanFieldDef" .Model}}
+  slog.Debug("{{.ID}}.Get", slog.String("qry", qry),
+    {{- range .Fields -}}
+      {{.GoLogType}}("{{.Field}}", {{.Field}}),
+    {{- end -}}
+  )
+  rows, err := r.db.QueryContext(ctx, qry, {{ template "ArgUnique" . }})
+  if err != nil {
+    return nil, err
+  }
+  defer rows.Close()
+  {{- template "GetScanFieldRef" .Model}}
+  {{- template "GetScanFieldManyRef" .Model}}
+  for rows.Next() {
+		err = rows.Scan(
+      {{- template "GetScanField" .Model}}
+    )
+    if err != nil {
+      return nil, err
+    }
+    {{- template "GetScanFieldManyRef" .Model}}
+  }
+  return &obj, nil
+}
+{{- end}}
+
+{{- end}}
+
+{{- define "GetSelectField" }}
+  {{- $idx := 0}}{{range .Fields -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- range .RefKeys}}
+        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
+        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Field}}
+      {{- end}}
+      {{- range .RefFields}}
+        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
+        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Field}}
+      {{- end}}
+    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
+      {{- range .RefKeys -}}
+        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1 -}}
+        obj{{$fb.ID}}_ref.{{ .Ref.Field}}
+      {{- end}}
+      {{- range .RefFields -}}
+        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1 -}}
+        obj{{$fb.ID}}_ref.{{ .Ref.Field}}
+      {{- end}}
+    {{-  else }}
+      {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
+      {{- "obj."}}{{.Field}}
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "GetSelectFrom" }}
+  {{- $ridx:=0}}{{range .Fields -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- "("}}
+    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
+      {{- "(("}}
+    {{- end}}
+   {{- end}}
+  {{- .Table}} obj
+  {{- range .Fields -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- if gt $ridx 0}}
+        {{- "\n      LEFT JOIN "}}
+      {{- else }}
+        {{- " LEFT JOIN "}}
+      {{- end}}{{ $ridx = add $ridx 1 }}
+      {{- .Model.Table }} obj{{$fb.ID}}{{ " ON" -}}
+      {{- range .RefKeys}}
+        {{- " " }}obj.{{$fb.Field}} = obj{{$fb.ID}}.{{.Ref.Field}}
+      {{- end}}
+      {{- ")" }}
+    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
+      {{- if gt $ridx 0}}
+        {{- "\n      LEFT JOIN "}}
+      {{- else }}
+        {{- " LEFT JOIN "}}
+      {{- end}}{{ $ridx = add $ridx 1 }}
+      {{- .MapTable}} obj{{.ID}}
+      {{- " ON " -}}
+      {{- $fidx := 0}}{{range .MapKeys}}
+        {{- if gt $fidx 0}} AND {{end}}{{$fidx = add $fidx 1}}
+        {{- "obj." }}{{ .Ref.Field }}{{ " = " -}} obj{{$fb.ID}}.{{ .Field }}
+      {{- end}}
+      {{- ")" }}
+      {{- "\n      LEFT JOIN "}}
+      {{- .RefModel.Table }} obj{{$fb.ID}}{{ "_ref ON "}}
+      {{- $fidx := 0}}{{range .RefKeys}}
+        {{- if gt $fidx 0}} AND {{end}}{{$fidx = add $fidx 1}}
+        {{- "obj" }}{{$fb.ID}}_ref.{{ .Ref.Field}} = obj{{$fb.ID}}.{{ .Field }}
+      {{- end}}
+       {{- ")" }}
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "GetScanFieldDef" }}
+  {{- $idx:=0}}{{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- range .RefKeys}}
+        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
+        var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType }}
+      {{- end}}
+      {{- range .RefFields}}
+        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
+        var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType }}
+      {{- end}}
+    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
+      {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
+      var ref{{.ID}} *{{.Ref}}
+      {{- range .RefKeys -}}
+        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
+        var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType }}
+      {{- end}}
+      {{- range .RefFields -}}
+        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
+        var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType }}
+      {{- end}}
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "GetScanField" }}
+  {{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- range .RefKeys}}
+        &ref{{$fb.ID}}_{{.Ref.ID}},
+      {{- end}}
+      {{- range .RefFields}}
+        &ref{{$fb.ID}}_{{.Ref.ID}},
+      {{- end}}
+    {{- else if eq .Type "many-to-many" }}
+      {{- range .RefKeys}}
+        &ref{{$f.ID}}_{{.Ref.ID}},
+      {{- end}}
+      {{- range .RefFields }}
+        &ref{{$f.ID}}_{{.Ref.ID}},
+      {{- end}}
+    {{-  else }}
+      &obj.{{.ID}},
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "GetScanFieldRef" -}}
+  {{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+      {{- range .RefKeys}}
+        if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+          if obj.{{$fb.ID}} == nil {
+        	  obj.{{$fb.ID}} = &User{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}}
+          } else {
+        	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+          }
+        }
+      {{- end}}
+      {{- range .RefFields}}
+        if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+          obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+        }
+      {{- end}}
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "GetScanFieldManyRef" -}}
+  {{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" }}{{$fb := . }}
+    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
+      {{$fidx := 0}}{{- range .RefKeys }}
+        if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+          {{- if gt $fidx 0}}
+          if ref{{$fb.ID}} == nil {
+            ref{{$fb.ID}} = &{{$fb.Ref}}{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }} }
+          } else {
+            ref{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+          }
+          {{- else}}
+          ref{{$fb.ID}} = &{{$fb.Ref}}{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }} }
+          {{- end}}{{$fidx = add $fidx 1}}
+        }
+      {{- end}}
+      {{- range .RefFields }}
+        if ref{{$fb.ID}} != nil && ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+          ref{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+        }
+      {{- end}}
+      if ref{{$fb.ID}} != nil {
+        obj.{{$fb.ID}} = append(obj.{{$fb.ID}}, *ref{{$fb.ID}})
+        ref{{$fb.ID}} = nil
+      }
+    {{- end}}
+  {{- end}}
+{{- end}}
+

@@ -1,0 +1,166 @@
+{{ define "StoreImplFind" -}}
+func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, sorting []{{.ID}}Sorting) (*{{.ID}}, error) {
+  qfilter := []string{}
+  args := []any{}
+  {{template "FilterOp" (dict "m" . "Res" "nil, " )}}
+  qry := `
+    SELECT
+      {{ template "SelectField" . }}
+    FROM
+      {{template "SelectFrom" . }}`
+  if len(qfilter) > 0 {
+    qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+  }
+  if len(sorting) > 0 {
+    sorts := []string{}
+    for _, f := range sorting {
+      switch f.Field {
+      {{range .Fields }}{{if eq .Type "text" -}}
+      case {{.Model.ID}}Field_{{.ID}}:
+        if f.Dir == SortDir_ASC {
+          sorts = append(sorts, "obj.{{.Field}} ASC")
+        } else {
+          sorts = append(sorts, "obj.{{.Field}} DESC")
+        }
+      {{end}}{{end}}}
+    }
+    if len(sorts) > 0 {
+      qry += "\n  ORDER BY " + strings.Join(sorts, ", ")
+    }
+  }
+  qry += "\n  LIMIT 1"
+  slog.Debug("FindOne", "qry", qry, "args", args)
+  rows, err := r.db.QueryContext(ctx, qry, args...)
+  if err != nil {
+    slog.Error("Query list", "qry:", qry, "Error:", err)
+    return nil, err
+  }
+  defer rows.Close()
+  if rows.Next() {
+    var obj {{.ID}};
+    {{template "ScanFieldDef" .}}
+    err = rows.Scan(
+      {{- template "ScanField" . }}
+    )
+    if err != nil {
+      return nil, err
+    }
+    {{- template "ScanFieldRef" .}}
+    return &obj, nil
+  }
+  return nil, fmt.Errorf("not found")
+}
+
+func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sorting []{{.ID}}Sorting, limit int, offset int64) ([]{{.ID}}, int64, error) {
+  qfilter := []string{}
+  args := []any{}
+  {{template "FilterOp" (dict "m" . "Res" "nil, 0, " )}}
+  qry := `{{template "QueryFindCount" .}}`
+  if len(qfilter) > 0 {
+    qry += " WHERE " + strings.Join(qfilter, " AND ")
+  }
+  total := int64(0)
+  err := r.db.QueryRowContext(ctx, qry, args...).Scan(&total)
+  if err != nil {
+    slog.Error("Query count", "qry:", qry, "Error:", err)
+    return nil, 0, err
+  }
+  qry = `SELECT
+      {{ template "SelectField" . }}
+    FROM
+      {{template "SelectFrom" . }}`
+  if len(qfilter) > 0 {
+    qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+  }
+  if len(sorting) > 0 {
+    sorts := []string{}
+    for _, f := range sorting {
+      switch f.Field {
+      {{range .Fields }}{{if eq .Type "text" "int" "autoincrement" -}}
+      case {{.Model.ID}}Field_{{.ID}}:
+        if f.Dir == SortDir_ASC {
+          sorts = append(sorts, "obj.{{.Field}} ASC")
+        } else {
+          sorts = append(sorts, "obj.{{.Field}} DESC")
+        }
+      {{end}}{{end}}
+      default:
+        return nil, 0, fmt.Errorf("field %v is unsorted", f)
+      }
+    }
+    if len(sorts) > 0 {
+      qry += "\n  ORDER BY " + strings.Join(sorts, ", ")
+    }
+  }
+  qry += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
+  slog.Debug("Find", "qry", qry, "args", args)
+  rows, err := r.db.QueryContext(ctx, qry, args...)
+  if err != nil {
+    slog.Error("Query list", "qry:", qry, "Error:", err)
+    return nil, 0, err
+  }
+  defer rows.Close()
+  list := []{{.ID}}{};
+  for rows.Next() {
+    var obj {{.ID}};
+    {{template "ScanFieldDef" .}}
+    err = rows.Scan(
+      {{- template "ScanField" . }}
+    )
+    if err != nil {
+      return nil, total, err
+    }
+    {{- template "ScanFieldRef" .}}
+    list = append(list, obj)
+  }
+  return list, total, nil
+}
+{{- end }}
+
+{{define "QueryFindCount" -}}
+  SELECT COUNT(
+  {{- $idx := 0}}{{range .PKeys -}}{{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}obj.{{.Field -}}
+  {{- end}}) FROM {{.Table}} obj
+{{- end -}}
+
+{{define "FilterOp" -}}
+  {{- $m := .m -}}
+  {{- $res := .Res -}}
+  for _, f := range filter {
+    switch f.Field {
+    {{range .m.Fields -}}{{if eq .Type "text" -}}
+    case {{$m.ID}}Field_{{.ID}}:
+      switch f.Op {
+      case FilterOp_EQ:
+				var val {{.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = {{ template "QryParamArg" .}})
+      case FilterOp_Like:
+				var val {{.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} LIKE {{ template "QryParamArg" .}})
+      case FilterOp_ILike:
+				var val {{.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} ILIKE {{ template "QryParamArg" .}})
+      default:
+        return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
+      }
+    {{end}}{{end -}}
+    default:
+      return {{$res}}fmt.Errorf("unsupported filter field %v", f.Field)
+    }
+  }
+{{- end -}}

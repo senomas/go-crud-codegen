@@ -1,0 +1,146 @@
+{{define "CreateReturning" -}}
+{{- end -}}
+
+{{define "CreateExec" -}}
+  res, err := tx.ExecContext(ctx, qry,
+   {{- range .Fields -}}{{$f := . -}}
+      {{- if eq .Type "autoincrement" -}}
+      {{- else if eq .Type "many-to-many" }}
+      {{- else if eq .Type "many-to-one" }}
+        {{- range .RefKeys}}
+          {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}},
+        {{- end}}
+      {{- else if eq .Type "password" }}
+        {{- "\n    "}}obj_{{.ID}},
+      {{- else }}
+        {{- "\n    "}}obj.{{.ID}},
+      {{- end}}
+    {{- end}}
+  )
+  if err != nil {
+		slog.Error("Insert", "qry:", qry, "Error:", err)
+    return nil, err
+  }
+	ra, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if ra != 1 {
+		return nil, fmt.Errorf("ERR_INSERT_FAILED")
+	}
+	obj.ID, err = res.LastInsertId()
+  if err != nil {
+    return nil, err
+  }
+{{- end -}}
+
+{{ define "StoreImplCreate" -}}
+func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, error) {
+  var tx *sql.Tx
+  var err error
+  var txNew bool
+  tx, err = r.db.BeginTx(ctx, nil)
+  txNew = true
+  defer tx.Rollback()
+  {{- range .Fields -}}
+    {{- if eq .Type "version" -}}
+      {{- "\n  "}}obj.{{.ID}} = 1
+    {{- end}}
+  {{- end}}
+  {{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-one" -}}
+      {{- range .RefKeys}}
+        {{- "\n  "}}var obj{{$f.ID}}_{{.Ref.ID}} {{ .Ref.GoSqlNullType }}
+        {{- "\n  "}}if obj.{{$f.ID}} != nil {
+        {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}} = {{ .Ref.GoSqlNullType }}{ {{ .Ref.GoSqlNullValue }}:obj.{{$f.ID}}.{{.Ref.ID}}, Valid:true }
+        {{- "\n  "}}} else {
+        {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}} = {{ .Ref.GoSqlNullType }}{ Valid: false }
+        {{- "\n  "}}}
+      {{- end}}
+    {{- else if eq .Type "password" }}
+      obj_{{.ID}}, err := HashPassword(obj.{{.ID}})
+      if err != nil {
+        return nil, err
+      }
+    {{- end}}
+  {{- end}}
+  qry := `
+    INSERT INTO {{.Table}} (
+      {{ $idx := 0 }}{{- range .Fields }}
+        {{- if eq .Type "autoincrement" -}}
+        {{- else if eq .Type "many-to-many" }}
+        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+          {{- range .RefKeys}}
+            {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{.Field}}
+          {{- end}}
+        {{- else }}
+          {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{ $idx = add $idx 1 }}{{.Field}}
+        {{- end}}
+      {{- end}}
+    ) VALUES (
+      {{- $idx := 0 }}{{- range .Fields }}
+        {{- if eq .Type "autoincrement" -}}
+        {{- else if eq .Type "many-to-many" }}
+        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+          {{- range .RefKeys}}
+            {{- if gt $idx 0}}, {{end}}{{ $idx = add $idx 1 }}{{template "QryParam" $idx}}
+          {{- end}}
+        {{- else }}
+          {{- if gt $idx 0}}, {{end}}{{ $idx = add $idx 1 }}{{template "QryParam" $idx}}
+        {{- end}}
+      {{- end -}}
+    ){{ template "CreateReturning" . }}`
+  {{template "LogCreateExec" .}}
+  {{template "CreateExec" .}}
+  {{- range .Fields -}}{{$f := . -}}
+    {{- if eq .Type "many-to-many" }}
+  qry = `
+    INSERT INTO {{.MapTable}} (
+      {{- $fidx := 0}}{{range .MapKeys}}
+        {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+        {{- .Field}}
+      {{- end}}
+      {{- range .RefKeys}}
+        {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
+        {{- .Field}}
+      {{- end}})
+    VALUES (
+      {{- $fidx := 0}}{{range .MapKeys -}}
+        {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1 }}
+        {{- template "QryParam" $fidx}}
+      {{- end }}
+      {{- range .RefKeys}}
+        {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1 }}
+        {{- template "QryParam" $fidx}}
+      {{- end}})`
+    for _, objRef := range obj.{{$f.ID}} {
+      res, err := tx.ExecContext(ctx, qry
+        {{- range .MapKeys}}
+          {{- ", obj." }}{{- .Ref.ID}}
+        {{- end}}
+        {{- range .RefKeys}}
+          {{- ", objRef." }}{{- .Ref.ID}}
+        {{- end}})
+      if err != nil {
+		    slog.Error("Insert {{.MapTable}}", "qry:", qry, "Error:", err)
+        return nil, err
+      }
+    	ra, err := res.RowsAffected()
+    	if err != nil {
+    		return nil, err
+    	}
+    	if ra != 1 {
+    		return nil, fmt.Errorf("ERR_INSERT_FAILED")
+    	}
+    }
+    {{- end}}
+  {{- end}}
+  if txNew {
+    err = tx.Commit()
+    if err != nil {
+      return nil, err
+    }
+  }
+  return &obj, nil
+}
+{{- end -}}

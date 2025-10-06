@@ -1,0 +1,41 @@
+{{ define "StoreImplDelete" -}}
+func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}) error {
+  var tx *sql.Tx
+  var err error
+  var txNew bool
+  tx, err = r.db.BeginTx(ctx, nil)
+  if err != nil {
+    return err
+  }
+  txNew = true
+  qry := `
+    DELETE FROM {{.Table}} WHERE
+      {{ template "WhereFk" . }}`
+  slog.Debug("{{.ID}}.Delete", "qry", qry,
+    {{- range .PKeys -}}
+      "{{.Field}}", {{.Field}},
+    {{- end }}
+  )
+  res, err := tx.ExecContext(ctx, qry, {{ template "ArgFk" .}})
+  if err != nil {
+    return err
+  }
+  ra, err := res.RowsAffected()
+  if err != nil {
+    return err
+  }
+  if ra == 0 {
+    return fmt.Errorf("no rows affected")
+  }
+  if ra != 1 {
+    return fmt.Errorf("invalid rows affected (%d)", ra)
+  }
+  if txNew {
+    err = tx.Commit()
+    if err != nil {
+      return err
+    }
+  }
+  return nil
+}
+{{ end -}}
