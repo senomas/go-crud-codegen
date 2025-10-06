@@ -11,7 +11,7 @@ func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}
   qry := `
     DELETE FROM {{.Table}} WHERE
       {{ template "WhereFk" . }}`
-  slog.Debug("{{.ID}}.Delete", "qry", qry,
+  slog.Debug("store.{{.ID}}.Delete", "qry", qry,
     {{- range .PKeys -}}
       "{{.Field}}", {{.Field}},
     {{- end }}

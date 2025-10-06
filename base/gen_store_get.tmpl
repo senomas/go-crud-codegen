@@ -9,7 +9,7 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
       {{ template "WhereFk" . }}`
   var obj {{.ID}};
   {{template "GetScanFieldDef" .}}
-  slog.Debug("{{.ID}}.Get", slog.String("qry", qry),
+  slog.Debug("store.{{.ID}}.Get", slog.String("qry", qry),
     {{- range .PKeys -}}
       {{.GoLogType}}("{{.Field}}", {{.Field}}),
     {{- end -}}
@@ -53,7 +53,7 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       {{ template "WhereUnique" . }}`
   var obj {{.Model.ID}};
   {{template "GetScanFieldDef" .Model}}
-  slog.Debug("{{.ID}}.Get", slog.String("qry", qry),
+  slog.Debug("store.{{.ID}}.Get", slog.String("qry", qry),
     {{- range .Fields -}}
       {{.GoLogType}}("{{.Field}}", {{.Field}}),
     {{- end -}}

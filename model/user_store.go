@@ -103,7 +103,7 @@ func (r *UserStoreImpl) Create(ctx context.Context, obj User) (*User, error) {
 		obj.UpdatedAt,
 	)
 	if err != nil {
-		slog.Error("Insert", "qry:", qry, "Error:", err)
+		slog.Error("Insert", "qry", qry, "Error", err)
 		return nil, err
 	}
 	ra, err := res.RowsAffected()
@@ -125,7 +125,7 @@ func (r *UserStoreImpl) Create(ctx context.Context, obj User) (*User, error) {
 	for _, objRef := range obj.Roles {
 		res, err := tx.ExecContext(ctx, qry, obj.ID, objRef.ID)
 		if err != nil {
-			slog.Error("Insert app_user_role", "qry:", qry, "Error:", err)
+			slog.Error("Insert app_user_role", "qry", qry, "Error", err)
 			return nil, err
 		}
 		ra, err := res.RowsAffected()
@@ -533,7 +533,7 @@ func (r *UserStoreImpl) FindOne(ctx context.Context, filter []UserFilter, sortin
 	slog.Debug("FindOne", "qry", qry, "args", args)
 	rows, err := r.db.QueryContext(ctx, qry, args...)
 	if err != nil {
-		slog.Error("Query list", "qry:", qry, "Error:", err)
+		slog.Error("Query list", "qry", qry, "Error", err)
 		return nil, err
 	}
 	if rows.Next() {
@@ -668,7 +668,7 @@ func (r *UserStoreImpl) Find(ctx context.Context, filter []UserFilter, sorting [
 	total := int64(0)
 	err := r.db.QueryRowContext(ctx, qry, args...).Scan(&total)
 	if err != nil {
-		slog.Error("Query count", "qry:", qry, "Error:", err)
+		slog.Error("Query count", "qry", qry, "Error", err)
 		return nil, 0, err
 	}
 	qry = `SELECT
@@ -727,7 +727,7 @@ func (r *UserStoreImpl) Find(ctx context.Context, filter []UserFilter, sorting [
 	slog.Debug("Find", "qry", qry, "args", args)
 	rows, err := r.db.QueryContext(ctx, qry, args...)
 	if err != nil {
-		slog.Error("Query list", "qry:", qry, "Error:", err)
+		slog.Error("Query list", "qry", qry, "Error", err)
 		return nil, 0, err
 	}
 	list := []User{}
@@ -866,12 +866,12 @@ func (r *UserStoreImpl) Update(ctx context.Context, obj User, fields []UserField
 	)
 	res, err := tx.ExecContext(ctx, qry, args...)
 	if err != nil {
-		slog.Error("Update", "qry:", qry, "Error:", err)
+		slog.Error("Update", "qry", qry, "Error", err)
 		return err
 	}
 	ra, err := res.RowsAffected()
 	if err != nil {
-		slog.Error("Update", "qry:", qry, "args:", args, "Error:", err)
+		slog.Error("Update", "qry", qry, "args", args, "Error", err)
 		return err
 	}
 	if ra == 0 {
@@ -886,7 +886,7 @@ func (r *UserStoreImpl) Update(ctx context.Context, obj User, fields []UserField
 	args = append(args, obj.ID)
 	rows, err := tx.QueryContext(ctx, qry, args...)
 	if err != nil {
-		slog.Error("Query app_user_role", "qry:", qry, "Error:", err)
+		slog.Error("Query app_user_role", "qry", qry, "Error", err)
 		return err
 	}
 	add_Roles := []*Role{}
@@ -936,7 +936,7 @@ func (r *UserStoreImpl) Update(ctx context.Context, obj User, fields []UserField
 		args = append(args, mobj.ID)
 		res, err := tx.ExecContext(ctx, qry, args...)
 		if err != nil {
-			slog.Error("Delete app_user_role", "qry:", qry, "Error:", err)
+			slog.Error("Delete app_user_role", "qry", qry, "Error", err)
 			return err
 		}
 		ra, err := res.RowsAffected()
@@ -957,7 +957,7 @@ func (r *UserStoreImpl) Update(ctx context.Context, obj User, fields []UserField
 		args = append(args, mobj.ID)
 		res, err := tx.ExecContext(ctx, qry, args...)
 		if err != nil {
-			slog.Error("Insert app_user_role", "qry:", qry, "Error:", err)
+			slog.Error("Insert app_user_role", "qry", qry, "Error", err)
 			return err
 		}
 		ra, err := res.RowsAffected()
@@ -976,6 +976,7 @@ func (r *UserStoreImpl) Update(ctx context.Context, obj User, fields []UserField
 	}
 	return nil
 }
+
 func (r *UserStoreImpl) UpdatePassword(ctx context.Context, id int64, version int64, value string) error {
 	var tx *sql.Tx
 	var err error
@@ -1008,12 +1009,12 @@ func (r *UserStoreImpl) UpdatePassword(ctx context.Context, id int64, version in
 	)
 	res, err := tx.ExecContext(ctx, qry, args...)
 	if err != nil {
-		slog.Error("Update", "qry:", qry, "Error:", err)
+		slog.Error("Update", "qry", qry, "Error", err)
 		return err
 	}
 	ra, err := res.RowsAffected()
 	if err != nil {
-		slog.Error("Update", "qry:", qry, "args:", args, "Error:", err)
+		slog.Error("Update", "qry", qry, "args", args, "Error", err)
 		return err
 	}
 	if ra == 0 {

@@ -30,7 +30,7 @@
     {{- end}}{{end}}
   )
   if err != nil {
-		slog.Error("Insert", "qry:", qry, "Error:", err)
+		slog.Error("Insert", "qry", qry, "Error", err)
     return nil, err
   }
 {{- end -}}

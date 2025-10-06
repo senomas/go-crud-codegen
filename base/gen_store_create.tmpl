@@ -18,7 +18,7 @@
     {{- end}}
   )
   if err != nil {
-		slog.Error("Insert", "qry:", qry, "Error:", err)
+		slog.Error("Insert", "qry", qry, "Error", err)
     return nil, err
   }
 	ra, err := res.RowsAffected()
@@ -90,7 +90,22 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
         {{- end}}
       {{- end -}}
     ){{ template "CreateReturning" . }}`
-  {{template "LogCreateExec" .}}
+  slog.Debug("store.{{.ID}}.Create",
+    slog.String("qry", qry),
+    {{- range .Fields -}}{{$f := . -}}
+      {{- if eq .Type "autoincrement" -}}
+      {{- else if eq .Type "many-to-many" }}
+      {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+        {{- range .RefKeys}}
+          {{- "\n    "}}{{.Ref.GoLogNullType}}("{{$f.ID}}.{{.Ref.Field}}", obj{{$f.ID}}_{{.Ref.ID}}),
+        {{- end}}
+      {{- else if eq .Type "password" }}
+        {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
+      {{- else }}
+        {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
+      {{- end}}
+    {{- end}}
+  )
   {{template "CreateExec" .}}
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-many" }}
@@ -122,7 +137,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
           {{- ", objRef." }}{{- .Ref.ID}}
         {{- end}})
       if err != nil {
-		    slog.Error("Insert {{.MapTable}}", "qry:", qry, "Error:", err)
+		    slog.Error("Insert {{.MapTable}}", "qry", qry, "Error", err)
         return nil, err
       }
     	ra, err := res.RowsAffected()

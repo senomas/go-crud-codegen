@@ -23,7 +23,23 @@
     {{- end}}
   )
   if err != nil {
-		slog.Error("Insert", "qry:", qry, "Error:", err)
+    slog.Error("store.{{.ID}}.Create",
+      slog.String("qry", qry),
+      {{- range .Fields -}}{{$f := . -}}
+        {{- if eq .Type "autoincrement" -}}
+        {{- else if eq .Type "many-to-many" }}
+        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+          {{- range .RefKeys}}
+            {{- "\n    "}}{{.Ref.GoLogNullType}}("{{$f.ID}}.{{.Ref.Field}}", obj{{$f.ID}}_{{.Ref.ID}}),
+          {{- end}}
+        {{- else if eq .Type "password" }}
+          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
+        {{- else }}
+          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
+        {{- end}}
+      {{- end}}
+      "err", err,
+    )
     return nil, err
   }
 	ra, err := res.RowsAffected()
