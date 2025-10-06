@@ -1,16 +1,19 @@
 package model
 
 import (
-	"context"
+	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
+	"encoding/base64"
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
-	"path/filepath"
-	"sort"
+	"strconv"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/argon2"
 )
 
 type FilterOp string
@@ -37,37 +40,98 @@ type StoreImpl struct {
 	db *sql.DB
 }
 
+type Params struct {
+	Memory      uint32 // in KiB
+	Iterations  uint32
+	Parallelism uint8
+	SaltLen     uint32
+	KeyLen      uint32
+}
+
+var hashParam = &Params{
+	Memory:      64 * 1024, // 64 MiB
+	Iterations:  3,
+	Parallelism: 2,
+	SaltLen:     16,
+	KeyLen:      32,
+}
+
 func GetStore() Store {
-	dsn := "file:../app.db?_busy_timeout=5000&cache=shared&mode=rwc&_foreign_keys=on"
-	db, err := sql.Open("sqlite3", dsn)
+	driver := "sqlite3"
+	db, err := sql.Open(driver, "memory:")
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Error opening db", "error", err)
+		os.Exit(1)
 	}
-	dir := "../migrations"
-	ents, err := os.ReadDir(dir)
-	if err != nil {
-		log.Fatal(err)
+	return &StoreImpl{db: db}
+}
+
+func HashPassword(value string) (string, error) {
+	salt := make([]byte, hashParam.SaltLen)
+	if _, err := rand.Read(salt); err != nil {
+		return "", err
 	}
-	files := make([]string, 0, len(ents))
-	for _, e := range ents {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if strings.EqualFold(filepath.Ext(name), ".sql") {
-			files = append(files, filepath.Join(dir, name))
-		}
+	hash := argon2.IDKey([]byte(value),
+		salt, hashParam.Iterations,
+		hashParam.Memory,
+		hashParam.Parallelism,
+		hashParam.KeyLen)
+	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
+	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
+	phc := fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$%s$%s",
+		hashParam.Memory,
+		hashParam.Iterations,
+		hashParam.Parallelism,
+		b64Salt,
+		b64Hash)
+	return phc, nil
+}
+
+func VerifyPassword(value, password string) (bool, error) {
+	parts := strings.Split(password, "$")
+	if len(parts) != 6 || parts[1] != "argon2id" {
+		return false, errors.New("invalid PHC format")
 	}
-	sort.Slice(files, func(i, j int) bool {
-		return strings.ToLower(filepath.Base(files[i])) < strings.ToLower(filepath.Base(files[j]))
-	})
-	fmt.Printf("Migrate %+v files\n", files)
-	for _, f := range files {
-		err = RunSQLFile(context.Background(), db, f)
-		if err != nil {
-			log.Fatalf("migrate %s: %v", f, err)
+	if parts[2] != "v=19" {
+		return false, errors.New("unsupported argon2 version")
+	}
+
+	var mem, iters uint32
+	var par uint8
+	for _, kv := range strings.Split(parts[3], ",") {
+		k, v, _ := strings.Cut(kv, "=")
+		switch k {
+		case "m":
+			u, err := strconv.ParseUint(v, 10, 32)
+			if err != nil {
+				return false, err
+			}
+			mem = uint32(u)
+		case "t":
+			u, err := strconv.ParseUint(v, 10, 32)
+			if err != nil {
+				return false, err
+			}
+			iters = uint32(u)
+		case "p":
+			u, err := strconv.ParseUint(v, 10, 8)
+			if err != nil {
+				return false, err
+			}
+			par = uint8(u)
 		}
 	}
 
-	return &StoreImpl{db: db}
+	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
+	if err != nil {
+		return false, err
+	}
+	want, err := base64.RawStdEncoding.DecodeString(parts[5])
+	if err != nil {
+		return false, err
+	}
+
+	got := argon2.IDKey([]byte(value), salt, iters, mem, par, uint32(len(want)))
+	ok := subtle.ConstantTimeCompare(got, want) == 1
+	return ok, nil
 }

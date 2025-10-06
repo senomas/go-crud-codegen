@@ -13,6 +13,7 @@ import (
 
 func TestUserCrud(t *testing.T) {
 	store := model.GetStore()
+
 	ctx := context.Background()
 	createTime := time.Now().Add(-time.Hour * 24)
 	createTime1 := time.Now().Add(-time.Hour * 24).Add(1 * time.Second)
@@ -21,6 +22,16 @@ func TestUserCrud(t *testing.T) {
 	t.Run("Create role Admin", func(t *testing.T) {
 		role := model.Role{
 			Name: "Admin",
+			Privileges: `{
+				"role":{"read":true,"create":true,"delete":true,"update":true},
+				"user":{"read":true,"create":true,"delete":true,"update":true},
+				"audit":{"read":true},
+				"param":{"read":true,"create":true,"delete":true,"update":true},
+				"identity":{"read":true,"create":true,"delete":true,"update":true},
+				"tcpgwAccess":{"read":true,"create":true,"delete":true,"update":true},
+				"tcpgwAccessIP":{"read":true,"create":true,"delete":true,"update":true},
+				"kaltimtara":{"read":true,"create":false,"delete":false,"update":true}
+			}`,
 		}
 
 		res, err := store.Role().Create(ctx, role)
@@ -56,6 +67,7 @@ func TestUserCrud(t *testing.T) {
 			Version:   1,
 			Email:     "admin@example.com",
 			Name:      "Admin",
+			Password:  "admin123",
 			Roles:     []model.Role{{ID: 1}, {ID: 2}},
 			CreatedAt: createTime,
 		}
@@ -66,6 +78,8 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, int64(1), res.ID)
 	})
 
+	var hpass string
+	var version int64
 	t.Run("Get user Admin", func(t *testing.T) {
 		user, err := store.User().Get(ctx, 1)
 		assert.NoError(t, err)
@@ -73,21 +87,69 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, int64(1), user.ID)
 		assert.Equal(t, "admin@example.com", user.Email)
 		assert.Equal(t, "Admin", user.Name)
-		assert.Equal(t, "", user.Password)
+		assert.NotEqual(t, "", user.Password)
+		assert.NotEqual(t, "admin123", user.Password)
+		fmt.Printf("hashed password %s\n", user.Password)
+
 		assert.Equal(t, 2, len(user.Roles))
 		assert.Equal(t, "Admin", user.Roles[0].Name)
+		assert.Equal(t, int64(2), user.Roles[1].ID)
 		assert.Equal(t, "Opr", user.Roles[1].Name)
+
+		check, err := user.VerifyPassword("admin123")
+		assert.NoError(t, err)
+		assert.True(t, check, "password must match")
+		hpass = user.Password
+		version = user.Version
 	})
 
-	t.Run("Get user Admin byName", func(t *testing.T) {
-		user, err := store.User().GetByName(ctx, "Admin")
+	t.Run("Update roles Admin", func(t *testing.T) {
+		user := model.User{
+			ID:      1,
+			Version: version,
+			Roles:   []model.Role{{ID: 1}, {ID: 3}},
+		}
+		err := store.User().Update(ctx, user, []model.UserField{model.UserField_Roles})
+		assert.NoError(t, err)
+	})
+
+	t.Run("Get user Admin after update roles", func(t *testing.T) {
+		user, err := store.User().Get(ctx, 1)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), user.ID)
 		assert.Equal(t, "admin@example.com", user.Email)
 		assert.Equal(t, "Admin", user.Name)
-		assert.Equal(t, "", user.Password)
-		assert.Equal(t, createTime.Format(time.RFC1123Z), user.CreatedAt.Format(time.RFC1123Z))
+
+		assert.Equal(t, 2, len(user.Roles))
+		assert.Equal(t, "Admin", user.Roles[0].Name)
+		assert.Equal(t, int64(3), user.Roles[1].ID)
+		assert.Equal(t, "Staf", user.Roles[1].Name)
+
+		version = user.Version
+	})
+
+	t.Run("Update password Admin", func(t *testing.T) {
+		err := store.User().UpdatePassword(ctx, 1, version, "admin123")
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Get user Admin", func(t *testing.T) {
+		user, err := store.User().Get(ctx, 1)
+		assert.NoError(t, err)
+
+		assert.Equal(t, int64(1), user.ID)
+		assert.Equal(t, "admin@example.com", user.Email)
+		assert.Equal(t, "Admin", user.Name)
+		assert.NotEqual(t, "", user.Password)
+		assert.NotEqual(t, "admin123", user.Password)
+
+		check, err := user.VerifyPassword("admin123")
+		assert.NoError(t, err)
+		assert.True(t, check, "password must match")
+
+		assert.NotEqual(t, hpass, user.Password, "hashed password must be different after update")
 	})
 
 	t.Run("Update invalid version user Admin", func(t *testing.T) {
@@ -105,7 +167,7 @@ func TestUserCrud(t *testing.T) {
 	t.Run("Update user Admin", func(t *testing.T) {
 		user := model.User{
 			ID:        1,
-			Version:   1,
+			Version:   version,
 			Email:     "admin@demo.com",
 			UpdatedAt: updateTime,
 		}
@@ -119,12 +181,11 @@ func TestUserCrud(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(1), user.ID)
-		assert.Equal(t, int64(2), user.Version)
+		assert.Equal(t, int64(version+1), user.Version)
 		assert.Equal(t, "admin@demo.com", user.Email)
 		assert.Equal(t, "Admin", user.Name)
-		assert.Equal(t, "", user.Password)
-		assert.Equal(t, createTime.Format(time.RFC1123Z), user.CreatedAt.Format(time.RFC1123Z), "createdAt must match")
-		assert.Equal(t, updateTime.Format(time.RFC1123Z), user.UpdatedAt.Format(time.RFC1123Z), "updatedAt must match")
+		assert.Equal(t, createTime.Format(time.RFC3339), user.CreatedAt.Format(time.RFC3339), "createdAt must match")
+		assert.Equal(t, updateTime.Format(time.RFC3339), user.UpdatedAt.Format(time.RFC3339), "updatedAt must match")
 	})
 
 	t.Run("Find all user", func(t *testing.T) {
@@ -135,7 +196,6 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, 1, len(users), "len(users) must 1")
 		assert.Equal(t, "admin@demo.com", users[0].Email)
 		assert.Equal(t, "Admin", users[0].Name)
-		assert.Equal(t, "", users[0].Password)
 	})
 
 	t.Run("Create user Staff", func(t *testing.T) {
@@ -157,8 +217,8 @@ func TestUserCrud(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(2), res.ID)
-		assert.Equal(t, createTime1.Format(time.RFC1123Z), res.CreatedAt.Format(time.RFC1123Z), "createdAt must match")
-		assert.Equal(t, updateTime.Format(time.RFC1123Z), res.UpdatedAt.Format(time.RFC1123Z), "updatedAt must match")
+		assert.Equal(t, createTime1.Format(time.RFC3339), res.CreatedAt.Format(time.RFC3339), "createdAt must match")
+		assert.Equal(t, updateTime.Format(time.RFC3339), res.UpdatedAt.Format(time.RFC3339), "updatedAt must match")
 	})
 
 	t.Run("Get user Staff", func(t *testing.T) {
@@ -168,7 +228,6 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, int64(2), user.ID)
 		assert.Equal(t, "staff@demo.com", user.Email)
 		assert.Equal(t, "Staff", user.Name)
-		assert.Equal(t, "", user.Password)
 		assert.NotNil(t, user.CreatedBy)
 		assert.Equal(t, int64(1), user.CreatedBy.ID)
 		assert.Equal(t, "Admin", user.CreatedBy.Name)
@@ -221,11 +280,15 @@ func TestUserCrud(t *testing.T) {
 	})
 
 	t.Run("Find all user", func(t *testing.T) {
-		users, total, err := store.User().Find(ctx, nil, nil, 10, 0)
+		users, total, err := store.User().Find(ctx, nil, []model.UserSorting{{
+			Field: model.UserField_ID,
+			Dir:   model.SortDir_ASC,
+		}}, 10, 0)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int64(27), total, "total must match")
 		assert.Equal(t, 10, len(users), "len(users) must match")
+
 		for i, u := range []string{"admin@demo.com", "staff@demo.com", "opr1@demo.com", "opr2@demo.com", "dummy1@demo.com"} {
 			assert.Equal(t, u, users[i].Email, fmt.Sprintf("email must match at index %d", i))
 		}
@@ -274,7 +337,6 @@ func TestUserCrud(t *testing.T) {
 		assert.Equal(t, int64(9), user.ID)
 		assert.Equal(t, "dummy5@demo.com", user.Email)
 		assert.Equal(t, "Dummy 5", user.Name)
-		assert.Equal(t, "", user.Password)
 	})
 
 	t.Run("Find users like dummy% sort by name desc limit 5", func(t *testing.T) {

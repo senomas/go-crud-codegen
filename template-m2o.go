@@ -13,14 +13,15 @@ func (f *FieldDef) RefKeys() ([]FieldRef, error) {
 		return nil, fmt.Errorf("referenced model %s for field %s is nil", f.Ref, f.ID)
 	}
 	for _, ms := range f.CRefKeys {
-		ref, err := mdr.Field(ms.ID)
+		v, err := mdr.Field(ms.ID)
+		ref := *v
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, FieldRef{
 			ID:    ms.ID,
 			Field: ms.Field,
-			Ref:   ref,
+			Ref:   &ref,
 		})
 	}
 	return res, nil
@@ -34,14 +35,15 @@ func (f *FieldDef) RefFields() ([]FieldRef, error) {
 		return nil, err
 	}
 	for _, ms := range f.CRefFields {
-		ref, err := mdr.Field(ms)
+		v, err := mdr.Field(ms)
+		ref := *v
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, FieldRef{
 			ID:    ms,
 			Field: ms,
-			Ref:   ref,
+			Ref:   &ref,
 		})
 	}
 	return res, nil

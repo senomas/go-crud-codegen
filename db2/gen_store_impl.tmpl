@@ -7,7 +7,7 @@
 {{- end -}}
 
 {{define "CreateExec" -}}
-  res, err := tx.ExecContext(ctx, qry,
+   res, err := tx.ExecContext(ctx, qry,
    {{- range .Fields -}}{{$f := . -}}
       {{- if eq .Type "autoincrement" -}}
       {{- else if eq .Type "many-to-many" }}

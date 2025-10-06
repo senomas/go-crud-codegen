@@ -4,6 +4,12 @@
 
 package {{.Package}}
 
+import (
+	"database/sql"
+	"encoding/json"
+	"time"
+)
+
 type {{.ID}} struct {
   {{- range .Fields }}
 	  {{.ID}}       {{.GoType}}   `json:"{{.Field}}"`

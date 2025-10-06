@@ -13,9 +13,11 @@ User:
       type: text
     - id: Password
       type: password
+      length: 2000
     - id: Token
       type: secret
       nullable: true
+      length: 2000
     - id: Roles
       type: many-to-many
       ref: Role
@@ -29,6 +31,7 @@ User:
           id: ID
       refFields:
         - Name
+        - Privileges
     - id: CreatedBy
       type: many-to-one
       ref: User
@@ -55,6 +58,6 @@ User:
   pkeys:
     - ID
   uniques:
-    - id: Name
+    - id: Email
       fields:
-        - Name
+        - Email

@@ -10,6 +10,8 @@ Role:
     - id: Description
       type: text
       nullable: true
+    - id: Privileges
+      type: json
   pkeys:
     - ID
   uniques:

@@ -1,6 +1,8 @@
 package main
 
-import "slices"
+import (
+	"slices"
+)
 
 func (f *FieldDef) GoType() string {
 	vt := f.Type
@@ -12,6 +14,8 @@ func (f *FieldDef) GoType() string {
 			vt = "sql.NullInt64"
 		case "text":
 			vt = "sql.NullString"
+		case "int", "number":
+			vt = "sql.NullInt64"
 		case "json":
 			vt = "sql.NullString"
 		case "password", "secret":
@@ -31,6 +35,8 @@ func (f *FieldDef) GoType() string {
 			vt = "int64"
 		case "text":
 			vt = "string"
+		case "int", "number":
+			vt = "int64"
 		case "json":
 			vt = "string"
 		case "password", "secret":
@@ -86,6 +92,55 @@ func (f *FieldDef) GoSqlNullValue() string {
 	}
 	if f.Null {
 		vt = "*" + vt
+	}
+	return vt
+}
+
+func (f *FieldDef) GoLogType() string {
+	return f.goLogType(f.Null)
+}
+
+func (f *FieldDef) GoLogNullType() string {
+	return f.goLogType(true)
+}
+
+func (f *FieldDef) goLogType(isNull bool) string {
+	vt := f.Type
+	switch f.Type {
+	case "autoincrement", "version":
+		if isNull {
+			vt = "logNullInt64"
+		} else {
+			vt = "slog.Int64"
+		}
+	case "int":
+		if isNull {
+			vt = "logNullInt64"
+		} else {
+			vt = "slog.Int"
+		}
+	case "int64":
+		if isNull {
+			vt = "logNullInt64"
+		} else {
+			vt = "slog.Int64"
+		}
+	case "text", "json", "password", "secret":
+		if isNull {
+			vt = "logNullString"
+		} else {
+			vt = "slog.String"
+		}
+	case "timestamp":
+		if isNull {
+			vt = "slog.Time"
+		} else {
+			vt = "slog.Time"
+		}
+	case "many-to-one":
+		vt = "slog.Any"
+	default:
+		vt = "slogUnknown" + f.Type
 	}
 	return vt
 }
