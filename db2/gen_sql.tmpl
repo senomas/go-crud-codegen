@@ -6,7 +6,11 @@
   {{- if eq .Type "autoincrement" }}
     {{- "INTEGER" -}}
   {{- else if or (eq .Type "text" "password" "secret") }}
-    {{- "VARCHAR(1023)"}}
+    {{- if eq .Length 0 }}
+      {{- "VARCHAR(255)"}}
+    {{- else }}
+      {{- printf "VARCHAR(%d)" .Length }}
+    {{- end}}
   {{- else if or (eq .Type "int" "version") }}
     {{- "INTEGER"}}
   {{- else if eq .Type "timestamp" }}

@@ -2,7 +2,11 @@
   {{- if eq .Type "autoincrement" }}
     {{- "INTEGER" -}}
   {{- else if or (eq .Type "text" "password" "salt" "secret") }}
-    {{- "VARCHAR(255)"}}
+    {{- if eq .Length 0 }}
+      {{- "VARCHAR(255)"}}
+    {{- else }}
+      {{- printf "VARCHAR(%d)" .Length }}
+    {{- end}}
   {{- else if or (eq .Type "int" "version") }}
     {{- "INTEGER"}}
   {{- else if eq .Type "timestamp" }}
@@ -38,7 +42,7 @@
 {{- end -}}
 
 {{ define "CreateTable" -}}
-CREATE TABLE IF NOT EXISTS {{$Model := .}}{{ $idx := 0}}{{.Table}} (
+CREATE TABLE {{$Model := .}}{{ $idx := 0}}{{.Table}} (
   {{- "\n    "}}{{range .Fields -}}
     {{- $fb := .}}
     {{- if eq .Type "many-to-one" }}
@@ -67,12 +71,12 @@ DROP TABLE IF EXISTS {{$Model := .}}{{ $idx := 0}}{{.Table}};
 {{- end -}}
 
 {{ define "CreateTable.Map" }}
-CREATE TABLE IF NOT EXISTS {{ $idx := 0}}{{.MapTable}} (
+CREATE TABLE {{ $idx := 0}}{{.MapTable}} (
     {{- $idx := 0}}{{range .MapKeys }}
-      {{- if gt $idx 0}},{{end}}{{$idx = add $idx 1}}{{ "\n    "}}{{ .Field}} {{ template "SqlTypeRef" .Ref}}
+      {{- if gt $idx 0}},{{end}}{{$idx = add $idx 1}}{{ "\n    "}}{{ .Field}} {{ template "SqlTypeRef" .Ref}} NOT NULL
     {{- end}}
     {{- range .RefKeys }}
-      {{- if gt $idx 0}},{{end}}{{$idx = add $idx 1}}{{ "\n    "}}{{ .Field}} {{ template "SqlTypeRef" .Ref}}
+      {{- if gt $idx 0}},{{end}}{{$idx = add $idx 1}}{{ "\n    "}}{{ .Field}} {{ template "SqlTypeRef" .Ref}} NOT NULL
     {{- end}}
     {{- ",\n    FOREIGN KEY (" -}}
     {{$fidx := 0}}{{- range .MapKeys }}

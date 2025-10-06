@@ -46,6 +46,7 @@ type FieldDef struct {
 	ID         string   `yaml:"id"`
 	Field      string   `yaml:"field,omitempty"`
 	Type       string   `yaml:"type"`
+	Length     int      `yaml:"length,omitempty"`
 	Null       bool     `yaml:"nullable,omitempty"`
 	Ref        string   `yaml:"ref"`
 	CRefKeys   []FK     `yaml:"refKeys"`
