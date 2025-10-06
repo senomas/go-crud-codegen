@@ -52,12 +52,12 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
 	logQueryArgs("store.{{.ID}}.Update", qry, args)
   res, err := tx.ExecContext(ctx, qry, args...)
   if err != nil {
-    slog.Error("Update", "qry", qry, "Error", err)
+	  logErrorQueryArgs("store.{{.ID}}.Update", qry, args)
     return err
   }
   ra, err := res.RowsAffected()
   if err != nil {
-    slog.Error("Update", "qry", qry, "args", args, "Error", err)
+  	logErrorQueryArgs("store.{{.ID}}.Update.RowsAffected", qry, args)
     return err
   }
   if ra == 0 {
@@ -78,7 +78,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   	logQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Find", qry, args)
     rows, err := tx.QueryContext(ctx, qry, args...)
     if err != nil {
-      slog.Error("Query {{.MapTable}}", "qry", qry, "Error", err)
+  	  logErrorQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Find", qry, args)
       return err
     }
     defer rows.Close()
@@ -93,7 +93,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
         {{- end}}
       )
       if err != nil {
-        slog.Error("Scan {{.Ref}}", "Error:", err)
+  	    logErrorQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Find.Scan", qry, args)
         return err
       }
       cur_{{.ID}} = append(cur_{{.ID}}, &mobj)
@@ -140,7 +140,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   	  logQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Delete", qry, args)
       res, err := tx.ExecContext(ctx, qry, args...)
       if err != nil {
-        slog.Error("Delete {{.MapTable}}", "qry", qry, "Error", err)
+  	    logErrorQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Delete", qry, args)
         return err
       }
     	ra, err := res.RowsAffected()
@@ -180,7 +180,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   	  logQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Insert", qry, args)
       res, err := tx.ExecContext(ctx, qry, args...)
       if err != nil {
-        slog.Error("Insert {{.MapTable}}", "qry", qry, "Error", err)
+  	    logErrorQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Insert", qry, args)
         return err
       }
     	ra, err := res.RowsAffected()
@@ -235,12 +235,12 @@ func (r *{{.Model.ID}}StoreImpl) Update{{.ID}}(ctx context.Context, {{template "
 	logQueryArgs("store.{{.Model.ID}}.Update{{.ID}}", qry, args)
   res, err := tx.ExecContext(ctx, qry, args...)
   if err != nil {
-    slog.Error("Update", "qry", qry, "Error", err)
+	  logErrorQueryArgs("store.{{.Model.ID}}.Update{{.ID}}", qry, args)
     return err
   }
   ra, err := res.RowsAffected()
   if err != nil {
-    slog.Error("Update", "qry", qry, "args", args, "Error", err)
+	  logErrorQueryArgs("store.{{.Model.ID}}.Update{{.ID}}.RowsAffected", qry, args)
     return err
   }
   if ra == 0 {

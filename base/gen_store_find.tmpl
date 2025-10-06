@@ -32,7 +32,7 @@ func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, 
 	logQueryArgs("store.{{.ID}}.FindOne", qry, args)
   rows, err := r.db.QueryContext(ctx, qry, args...)
   if err != nil {
-    slog.Error("Query list", "qry", qry, "Error", err)
+	  logErrorQueryArgs("store.{{.ID}}.FindOne", qry, args)
     return nil, err
   }
   defer rows.Close()
@@ -43,6 +43,7 @@ func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, 
       {{- template "ScanField" . }}
     )
     if err != nil {
+	    logErrorQueryArgs("store.{{.ID}}.FindOne.Scan", qry, args)
       return nil, err
     }
     {{- template "ScanFieldRef" .}}
@@ -97,7 +98,7 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
 	logQueryArgs("store.{{.ID}}.Find", qry, args)
   rows, err := r.db.QueryContext(ctx, qry, args...)
   if err != nil {
-    slog.Error("Query list", "qry", qry, "Error", err)
+	  logErrorQueryArgs("store.{{.ID}}.Find", qry, args)
     return nil, 0, err
   }
   defer rows.Close()
@@ -109,6 +110,7 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
       {{- template "ScanField" . }}
     )
     if err != nil {
+	    logErrorQueryArgs("store.{{.ID}}.Find.Scan", qry, args)
       return nil, total, err
     }
     {{- template "ScanFieldRef" .}}

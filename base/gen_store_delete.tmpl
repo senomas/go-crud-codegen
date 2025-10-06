@@ -18,10 +18,20 @@ func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}
   )
   res, err := tx.ExecContext(ctx, qry, {{ template "ArgFk" .}})
   if err != nil {
+    slog.Error("store.{{.ID}}.Delete", "qry", qry,
+      {{- range .PKeys -}}
+        "{{.Field}}", {{.Field}},
+      {{- end }}
+    )
     return err
   }
   ra, err := res.RowsAffected()
   if err != nil {
+    slog.Error("store.{{.ID}}.Delete.RowsAffected", "qry", qry,
+      {{- range .PKeys -}}
+        "{{.Field}}", {{.Field}},
+      {{- end }}
+    )
     return err
   }
   if ra == 0 {
