@@ -17,7 +17,7 @@ import (
 
 {{- define "PathFk" -}}
   {{ $idx := 0}}{{range .PKeys -}}
-    {{- "/{"}}{{.Field}}{{"}" -}}
+    {{- "/{"}}{{.Name}}{{"}" -}}
   {{- end}}
 {{- end }}
 
@@ -102,21 +102,21 @@ func {{.ID}}Create(ctx context.Context, store model.Store, w http.ResponseWriter
 
 func {{.ID}}Get(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
   {{range .PKeys -}}
-    p{{.Field}} := r.PathValue("{{.Field}}")
-  	{{.Field}}, err := strconv.ParseInt(p{{.Field}}, 10, 64)
+    p{{.Name}} := r.PathValue("{{.Name}}")
+  	{{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
   	if err != nil {
-  		slog.Warn("invalid {{.Field}}", "{{.Field}}", p{{.Field}}, "err", err)
-  		return fmt.Errorf("invalid {{.Field}}")
+  		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
+  		return fmt.Errorf("invalid {{.Name}}")
   	}
   {{- end}}
 	obj, err := store.{{.ID}}().Get(ctx
   {{- range .PKeys -}}
-    {{- ", "}}{{.Field -}}
+    {{- ", "}}{{.Name -}}
   {{- end}})
 	if err != nil {
 		slog.Warn("error get {{.ID}}"
     {{- range .PKeys -}}
-      {{- ", "}}"{{.Field -}}", {{.Field -}}
+      {{- ", "}}"{{.Name -}}", {{.Name -}}
     {{- end -}}
     , "err", err)
 		return err
@@ -172,13 +172,13 @@ func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter
     {{end -}}
   {{- end}}
   {{range .PKeys -}}
-    p{{.Field}} := r.PathValue("{{.Field}}")
-  	{{.Field}}, err := strconv.ParseInt(p{{.Field}}, 10, 64)
+    p{{.Name}} := r.PathValue("{{.Name}}")
+  	{{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
   	if err != nil {
-  		slog.Warn("invalid {{.Field}}", "{{.Field}}", p{{.Field}}, "err", err)
-  		return fmt.Errorf("invalid {{.Field}}")
+  		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
+  		return fmt.Errorf("invalid {{.Name}}")
   	}
-    obj.Value.{{.ID}} = {{.Field}}
+    obj.Value.{{.ID}} = {{.Name}}
   {{- end}}
   err = store.{{.ID}}().Update(ctx, obj.Value, obj.Fields)
   if err != nil {
@@ -190,21 +190,21 @@ func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter
 
 func {{.ID}}Delete(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
   {{range .PKeys -}}
-    p{{.Field}} := r.PathValue("{{.Field}}")
-  	{{.Field}}, err := strconv.ParseInt(p{{.Field}}, 10, 64)
+    p{{.Name}} := r.PathValue("{{.Name}}")
+  	{{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
   	if err != nil {
-  		slog.Warn("invalid {{.Field}}", "{{.Field}}", p{{.Field}}, "err", err)
-  		return fmt.Errorf("invalid {{.Field}}")
+  		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
+  		return fmt.Errorf("invalid {{.Name}}")
   	}
   {{- end}}
 	err = store.{{.ID}}().Delete(ctx
   {{- range .PKeys -}}
-    {{- ", "}}{{.Field -}}
+    {{- ", "}}{{.Name -}}
   {{- end}})
 	if err != nil {
 		slog.Warn("error get {{.ID}}"
     {{- range .PKeys -}}
-      {{- ", "}}"{{.Field -}}", {{.Field -}}
+      {{- ", "}}"{{.Name -}}", {{.Name -}}
     {{- end -}}
     , "err", err)
 		return err

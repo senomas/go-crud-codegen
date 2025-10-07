@@ -11,14 +11,14 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
   {{template "GetScanFieldDef" .}}
   slog.Debug("store.{{.ID}}.Get", slog.String("qry", qry),
     {{- range .PKeys -}}
-      {{.GoLogType}}("{{.Field}}", {{.Field}}),
+      {{.GoLogType}}("{{.Name}}", {{.Name}}),
     {{- end -}}
   )
-  rows, err := r.{{.DSN}}.QueryContext(ctx, qry, {{ template "ArgFk" . }})
+  rows, err := r.{{.DB}}.QueryContext(ctx, qry, {{ template "ArgFk" . }})
   if err != nil {
     slog.Error("store.{{.ID}}.Get", slog.String("qry", qry),
       {{- range .PKeys -}}
-        {{.GoLogType}}("{{.Field}}", {{.Field}}),
+        {{.GoLogType}}("{{.Name}}", {{.Name}}),
       {{- end -}}
     )
 		return nil, err
@@ -31,7 +31,7 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
     if err != nil {
       slog.Error("store.{{.ID}}.Get.Scan",slog.String("qry", qry),
         {{- range .PKeys -}}
-          {{.GoLogType}}("{{.Field}}", {{.Field}}),
+          {{.GoLogType}}("{{.Name}}", {{.Name}}),
         {{- end -}}
       )
       return nil, err
@@ -45,7 +45,7 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
       if err != nil {
         slog.Error("store.{{.ID}}.Get.Scan",slog.String("qry", qry),
           {{- range .PKeys -}}
-            {{.GoLogType}}("{{.Field}}", {{.Field}}),
+            {{.GoLogType}}("{{.Name}}", {{.Name}}),
           {{- end -}}
         )
         return nil, err
@@ -69,14 +69,14 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
   {{template "GetScanFieldDef" .Model}}
   slog.Debug("store.{{.ID}}.Get", slog.String("qry", qry),
     {{- range .Fields -}}
-      {{.GoLogType}}("{{.Field}}", {{.Field}}),
+      {{.GoLogType}}("{{.Name}}", {{.Name}}),
     {{- end -}}
   )
-  rows, err := r.{{.Model.DSN}}.QueryContext(ctx, qry, {{ template "ArgUnique" . }})
+  rows, err := r.{{.Model.DB}}.QueryContext(ctx, qry, {{ template "ArgUnique" . }})
   if err != nil {
     slog.Error("store.{{.ID}}.Get", slog.String("qry", qry),
       {{- range .Fields -}}
-        {{.GoLogType}}("{{.Field}}", {{.Field}}),
+        {{.GoLogType}}("{{.Name}}", {{.Name}}),
       {{- end -}}
     )
     return nil, err
@@ -91,7 +91,7 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
     if err != nil {
       slog.Error("store.{{.ID}}.Get", slog.String("qry", qry),
         {{- range .Fields -}}
-          {{.GoLogType}}("{{.Field}}", {{.Field}}),
+          {{.GoLogType}}("{{.Name}}", {{.Name}}),
         {{- end -}}
       )
       return nil, err
@@ -109,24 +109,24 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range .RefKeys}}
         {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Field}}
+        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Name}}
       {{- end}}
       {{- range .RefFields}}
         {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Field}}
+        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Name}}
       {{- end}}
     {{- else if eq .Type "many-to-many" }}{{$fb := . }}
       {{- range .RefKeys -}}
         {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1 -}}
-        obj{{$fb.ID}}_ref.{{ .Ref.Field}}
+        obj{{$fb.ID}}_ref.{{ .Ref.Name}}
       {{- end}}
       {{- range .RefFields -}}
         {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1 -}}
-        obj{{$fb.ID}}_ref.{{ .Ref.Field}}
+        obj{{$fb.ID}}_ref.{{ .Ref.Name}}
       {{- end}}
     {{-  else }}
       {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-      {{- "obj."}}{{.Field}}
+      {{- "obj."}}{{.Name}}
     {{- end}}
   {{- end}}
 {{- end}}
@@ -149,7 +149,7 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       {{- end}}{{ $ridx = add $ridx 1 }}
       {{- .Model.Table }} obj{{$fb.ID}}{{ " ON" -}}
       {{- range .RefKeys}}
-        {{- " " }}obj.{{$fb.Field}} = obj{{$fb.ID}}.{{.Ref.Field}}
+        {{- " " }}obj.{{$fb.Name}} = obj{{$fb.ID}}.{{.Ref.Name}}
       {{- end}}
       {{- ")" }}
     {{- else if eq .Type "many-to-many" }}{{$fb := . }}
@@ -169,7 +169,7 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       {{- .RefModel.Table }} obj{{$fb.ID}}{{ "_ref ON "}}
       {{- $fidx := 0}}{{range .RefKeys}}
         {{- if gt $fidx 0}} AND {{end}}{{$fidx = add $fidx 1}}
-        {{- "obj" }}{{$fb.ID}}_ref.{{ .Ref.Field}} = obj{{$fb.ID}}.{{ .Field }}
+        {{- "obj" }}{{$fb.ID}}_ref.{{ .Ref.Field}} = obj{{$fb.ID}}.{{.Field}}
       {{- end}}
        {{- ")" }}
     {{- end}}
@@ -230,7 +230,7 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       {{- range .RefKeys}}
         if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
           if obj.{{$fb.ID}} == nil {
-        	  obj.{{$fb.ID}} = &User{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}}
+        	  obj.{{$fb.ID}} = &{{.Ref.Model.ID}}{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}}
           } else {
         	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
           }

@@ -8,7 +8,7 @@
 {{- define "ArgFk" }}
   {{- $idx := 0 -}}
   {{- range .PKeys -}}
-    {{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}}
+    {{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Name}}
   {{- end}}
 {{- end}}
 
@@ -101,7 +101,7 @@
       {{- range .RefKeys }}
         if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
           if obj.{{$fb.ID}} == nil {
-        	  obj.{{$fb.ID}} = &User{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}}
+        	  obj.{{$fb.ID}} = &{{.Ref.Model.ID}}{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}}
           } else {
         	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}
           }

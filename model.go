@@ -6,7 +6,7 @@ import (
 )
 
 type ModelDef struct {
-	DSN     string      `yaml:"dsn,omitempty"`
+	DB      string      `yaml:"dsn,omitempty"`
 	Table   string      `yaml:"table"`
 	Fields  []FieldDef  `yaml:"fields"`
 	CPKeys  []string    `yaml:"pkeys"`
@@ -45,6 +45,7 @@ type FK struct {
 
 type FieldDef struct {
 	ID         string   `yaml:"id"`
+	Name       string   `yaml:"name,omitempty"`
 	Field      string   `yaml:"field,omitempty"`
 	Type       string   `yaml:"type"`
 	Length     int      `yaml:"length,omitempty"`

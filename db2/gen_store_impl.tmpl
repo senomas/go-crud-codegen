@@ -49,9 +49,13 @@
 	if ra != 1 {
 		return nil, fmt.Errorf("ERR_INSERT_FAILED")
 	}
-  err = tx.QueryRowContext(ctx, "SELECT IDENTITY_VAL_LOCAL() FROM SYSIBM.SYSDUMMY1").Scan(&obj.ID)
-  if err != nil {
-    return nil, err
-  }
+  {{- range .PKeys}}
+    {{- if eq .Type "autoincrement"}}
+      err = tx.QueryRowContext(ctx, "SELECT IDENTITY_VAL_LOCAL() FROM SYSIBM.SYSDUMMY1").Scan(&obj.{{.ID}})
+      if err != nil {
+        return nil, err
+      }
+    {{- end}}
+  {{- end}}
 {{- end -}}
 

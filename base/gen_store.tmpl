@@ -39,21 +39,21 @@ type {{.ID}}StoreImpl struct {
 
 {{- define "ParamFk" -}}
   {{ $idx := 0}}{{range .PKeys -}}
-    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType}}
+    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Name}} {{.GoType}}
   {{- end}}
 {{- end -}}
 
 {{- define "ParamFkVersion" -}}
   {{ $idx := 0}}{{range .PKeys -}}
-    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType}}
+    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Name}} {{.GoType}}
   {{- end}}
   {{- range .Fields }}{{if eq .Type "version" -}}
-    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType}}
+    {{if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Name}} {{.GoType}}
   {{- end}}{{end}}
 {{- end -}}
 
 {{- define "ParamUnique" -}}
   {{- $idx := 0}}{{range .Fields -}}
-    {{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Field}} {{.GoType -}}
+    {{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}{{.Name}} {{.GoType -}}
   {{- end}}
 {{- end}}

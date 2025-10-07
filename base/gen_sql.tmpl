@@ -18,7 +18,7 @@
 
 {{ define "SqlType" -}}
   {{- if eq .Type "autoincrement" }}
-    {{- "INTEGER PRIMARY KEY AUTOINCREMENT" -}}
+    {{- "INTEGER AUTOINCREMENT" -}}
   {{- else }}
     {{- template "SqlTypeRef" .}}{{ if not .Null }} NOT NULL {{end}}
   {{- end}}
@@ -33,7 +33,7 @@
       {{- $fidx := 0}}{{range .RefKeys }}
         {{- .Field}}
         {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}
-      {{- end}}) REFERENCES {{.Model.Table}}(
+      {{- end}}) REFERENCES {{.RefModel.Table}}(
       {{- $fidx := 0}}{{range .RefKeys }}{{$fr := .}}
         {{- .Ref.Field}}
       {{- end}})
@@ -63,6 +63,10 @@ CREATE TABLE {{$Model := .}}{{ $idx := 0}}{{.Table}} (
     {{- end}}
   {{- end}}
   {{- template "CreateTable.ManyToOne" . }}
+  {{- if ge $idx 1}}{{ ",\n    " }}{{end}}{{$idx = add $idx 1 -}}
+  PRIMARY KEY ({{$fidx:=0}}{{- range .PKeys }}
+  {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}{{.Field}}
+  {{- end}})
 );
 {{- end -}}
 

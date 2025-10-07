@@ -14,7 +14,7 @@ import (
 
 type {{.ID}} struct {
   {{- range .Fields }}
-	  {{.ID}}       {{.GoType}}   `json:"{{.Field}}"`
+	  {{.ID}}       {{.GoType}}   `json:"{{.Name}}"`
   {{- end}}
 }
 
@@ -22,7 +22,7 @@ type {{.ID}}Field string
 
 const (
 	{{range .Fields -}}
-	{{.Model.ID}}Field_{{.ID}}       {{.Model.ID}}Field = "{{.Field}}"
+	{{.Model.ID}}Field_{{.ID}}       {{.Model.ID}}Field = "{{.Name}}"
 	{{end}}
 )
 

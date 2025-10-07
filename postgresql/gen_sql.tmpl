@@ -18,7 +18,7 @@
 
 {{ define "SqlType" -}}
   {{- if eq .Type "autoincrement" }}
-    {{- "SERIAL PRIMARY KEY" -}}
+    {{- "SERIAL" -}}
   {{- else }}
     {{- template "SqlTypeRef" .}}
   {{- end}}
