@@ -57,6 +57,7 @@ func diff(file string) {
 	out, err := exec.Command("git", "--no-pager", "diff", "--", file).CombinedOutput()
 	if err != nil {
 		log.Fatalf("Checking git diff for %s: %v", file, err)
+		os.Exit(1)
 	}
 	scanner := bufio.NewScanner(bytes.NewBuffer(out))
 	for scanner.Scan() {
@@ -89,9 +90,16 @@ func diff(file string) {
 			}
 		}
 		scanner := bufio.NewScanner(bytes.NewBuffer(out))
-		for scanner.Scan() {
+		if scanner.Scan() {
 			ln := scanner.Text()
+			if strings.HasPrefix(ln, "error: pathspec") {
+				return
+			}
 			fmt.Println(ln)
+			for scanner.Scan() {
+				ln := scanner.Text()
+				fmt.Println(ln)
+			}
 		}
 	}
 }
