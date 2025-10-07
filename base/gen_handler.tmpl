@@ -82,13 +82,13 @@ func {{.ID}}Create(ctx context.Context, store model.Store, w http.ResponseWriter
     return fmt.Errorf("invalid body")
   }
   {{range .Fields -}}
-    {{if eq .ID "CreatedBy" "UpdatedBy" -}}
+    {{if eq .ID "CreatedBy" "UpdatedBy" -}}{{if eq .Type "many-to-one" -}}
     	if user, ok := ctx.Value(HandlerCtxKeyUser).(*LoginUser); ok && user.User != nil {
     		obj.{{.ID}} = user.User
     	} else {
     		return fmt.Errorf("missing user in context")
     	}
-    {{else if eq .ID "CreatedAt" "UpdatedAt" -}}
+    {{end}}{{else if eq .ID "CreatedAt" "UpdatedAt" -}}
       obj.{{.ID}} = time.Now()
     {{end -}}
   {{- end}}
@@ -101,13 +101,17 @@ func {{.ID}}Create(ctx context.Context, store model.Store, w http.ResponseWriter
 }
 
 func {{.ID}}Get(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
-  {{range .PKeys -}}
-    p{{.Name}} := r.PathValue("{{.Name}}")
-  	{{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
-  	if err != nil {
-  		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
-  		return fmt.Errorf("invalid {{.Name}}")
-  	}
+  {{- range .PKeys -}}
+    {{- if eq .Type "autoincrement" "integer"}}
+      p{{.Name}} := r.PathValue("{{.Name}}")
+  	  {{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
+    	if err != nil {
+    		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
+    		return fmt.Errorf("invalid {{.Name}}")
+    	}
+    {{- else}}
+      {{.Name}} := r.PathValue("{{.Name}}")
+    {{- end}}
   {{- end}}
 	obj, err := store.{{.ID}}().Get(ctx
   {{- range .PKeys -}}
@@ -159,26 +163,30 @@ func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter
     return fmt.Errorf("invalid body")
   }
   {{range .Fields -}}
-    {{if eq .ID "UpdatedBy" -}}
+    {{if eq .ID "UpdatedBy" -}}{{if eq .Type "many-to-one" -}}
     	if user, ok := ctx.Value(HandlerCtxKeyUser).(*LoginUser); ok && user.User != nil {
     		obj.Value.{{.ID}} = user.User
     		obj.Fields = append(obj.Fields, model.UserField_{{.ID}})
     	} else {
     		return fmt.Errorf("missing user in context")
     	}
-    {{else if eq .ID "UpdatedAt" -}}
+    {{end}}{{else if eq .ID "UpdatedAt" -}}
       obj.Value.{{.ID}} = time.Now()
       obj.Fields = append(obj.Fields, model.{{.Model.ID}}Field_{{.ID}})
     {{end -}}
   {{- end}}
-  {{range .PKeys -}}
-    p{{.Name}} := r.PathValue("{{.Name}}")
-  	{{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
-  	if err != nil {
-  		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
-  		return fmt.Errorf("invalid {{.Name}}")
-  	}
-    obj.Value.{{.ID}} = {{.Name}}
+  {{- range .PKeys -}}
+    {{- if eq .Type "autoincrement" "integer"}}
+      p{{.Name}} := r.PathValue("{{.Name}}")
+  	  {{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
+    	if err != nil {
+    		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
+    		return fmt.Errorf("invalid {{.Name}}")
+    	}
+      obj.Value.{{.ID}} = {{.Name}}
+    {{- else}}
+      obj.Value.{{.ID}} = r.PathValue("{{.Name}}")
+    {{- end}}
   {{- end}}
   err = store.{{.ID}}().Update(ctx, obj.Value, obj.Fields)
   if err != nil {
@@ -189,13 +197,18 @@ func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter
 }
 
 func {{.ID}}Delete(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
-  {{range .PKeys -}}
-    p{{.Name}} := r.PathValue("{{.Name}}")
-  	{{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
-  	if err != nil {
-  		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
-  		return fmt.Errorf("invalid {{.Name}}")
-  	}
+  var err error
+  {{- range .PKeys -}}
+    {{- if eq .Type "autoincrement" "integer"}}
+      p{{.Name}} := r.PathValue("{{.Name}}")
+  	  {{.Name}}, err := strconv.ParseInt(p{{.Name}}, 10, 64)
+    	if err != nil {
+    		slog.Warn("invalid {{.Name}}", "{{.Name}}", p{{.Name}}, "err", err)
+    		return fmt.Errorf("invalid {{.Name}}")
+    	}
+    {{- else}}
+      {{.Name}} := r.PathValue("{{.Name}}")
+    {{- end}}
   {{- end}}
 	err = store.{{.ID}}().Delete(ctx
   {{- range .PKeys -}}

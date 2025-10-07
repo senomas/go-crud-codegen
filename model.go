@@ -6,7 +6,7 @@ import (
 )
 
 type ModelDef struct {
-	DB      string      `yaml:"dsn,omitempty"`
+	DB      string      `yaml:"db,omitempty"`
 	Table   string      `yaml:"table"`
 	Fields  []FieldDef  `yaml:"fields"`
 	CPKeys  []string    `yaml:"pkeys"`
