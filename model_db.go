@@ -9,17 +9,17 @@ func (f *FieldDef) GoType() string {
 	if f.Null {
 		switch f.Type {
 		case "autoincrement":
-			vt = "sql.NullInt64"
+			vt = "jsql.NullInt64"
 		case "version":
-			vt = "sql.NullInt64"
+			vt = "jsql.NullInt64"
 		case "text":
-			vt = "sql.NullString"
+			vt = "jsql.NullString"
 		case "int", "number":
-			vt = "sql.NullInt64"
+			vt = "jsql.NullInt64"
 		case "json":
-			vt = "sql.NullString"
+			vt = "jsql.NullString"
 		case "password", "secret":
-			vt = "sql.NullString"
+			vt = "jsql.Secret"
 		case "timestamp":
 			vt = "time.Time"
 		case "many-to-one":
@@ -40,7 +40,7 @@ func (f *FieldDef) GoType() string {
 		case "json":
 			vt = "string"
 		case "password", "secret":
-			vt = "string"
+			vt = "jsql.Secret"
 		case "timestamp":
 			vt = "time.Time"
 		case "many-to-one":
@@ -56,15 +56,15 @@ func (f *FieldDef) GoSqlNullType() string {
 	vt := f.Type
 	switch f.Type {
 	case "autoincrement":
-		vt = "sql.NullInt64"
+		vt = "jsql.NullInt64"
 	case "ver":
-		vt = "sql.NullInt64"
+		vt = "jsql.NullInt64"
 	case "text":
-		vt = "sql.NullString"
+		vt = "jsql.NullString"
 	case "json":
-		vt = "sql.NullString"
+		vt = "jsql.NullString"
 	case "password", "secret":
-		vt = "sql.NullString"
+		vt = "jsql.Secret"
 	case "many-to-one":
 		vt = "*" + f.Ref
 	}
@@ -125,12 +125,14 @@ func (f *FieldDef) goLogType(isNull bool) string {
 		} else {
 			vt = "slog.Int64"
 		}
-	case "text", "json", "password", "secret":
+	case "text", "json":
 		if isNull {
 			vt = "logNullString"
 		} else {
 			vt = "slog.String"
 		}
+	case "password", "secret":
+		vt = "logNullSecret"
 	case "timestamp":
 		if isNull {
 			vt = "slog.Time"

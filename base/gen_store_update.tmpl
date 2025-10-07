@@ -213,7 +213,7 @@ func (r *{{.Model.ID}}StoreImpl) Update{{.ID}}(ctx context.Context, {{template "
   txNew = true
   defer tx.Rollback()
   args := []any{}
-  password, err := HashPassword(value)
+  password, err := HashPassword(jsql.SecretValue(value))
   if err != nil {
     return err
   }

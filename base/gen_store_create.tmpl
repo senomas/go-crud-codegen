@@ -83,9 +83,9 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
       {{- range .RefKeys}}
         {{- "\n  "}}var obj{{$f.ID}}_{{.Ref.ID}} {{ .Ref.GoSqlNullType }}
         {{- "\n  "}}if obj.{{$f.ID}} != nil {
-        {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}} = {{ .Ref.GoSqlNullType }}{ {{ .Ref.GoSqlNullValue }}:obj.{{$f.ID}}.{{.Ref.ID}}, Valid:true }
+        {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}} = {{ .Ref.GoSqlNullType }}Value(obj.{{$f.ID}}.{{.Ref.ID}})
         {{- "\n  "}}} else {
-        {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}} = {{ .Ref.GoSqlNullType }}{ Valid: false }
+        {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}} = {{ .Ref.GoSqlNullType }}ValueNull()
         {{- "\n  "}}}
       {{- end}}
     {{- else if eq .Type "password" }}
