@@ -14,7 +14,7 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
       {{.GoLogType}}("{{.Field}}", {{.Field}}),
     {{- end -}}
   )
-  rows, err := r.db.QueryContext(ctx, qry, {{ template "ArgFk" . }})
+  rows, err := r.{{.DSN}}.QueryContext(ctx, qry, {{ template "ArgFk" . }})
   if err != nil {
     slog.Error("store.{{.ID}}.Get", slog.String("qry", qry),
       {{- range .PKeys -}}
@@ -72,7 +72,7 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       {{.GoLogType}}("{{.Field}}", {{.Field}}),
     {{- end -}}
   )
-  rows, err := r.db.QueryContext(ctx, qry, {{ template "ArgUnique" . }})
+  rows, err := r.{{.Model.DSN}}.QueryContext(ctx, qry, {{ template "ArgUnique" . }})
   if err != nil {
     slog.Error("store.{{.ID}}.Get", slog.String("qry", qry),
       {{- range .Fields -}}

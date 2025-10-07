@@ -3,7 +3,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   var tx *sql.Tx
   var err error
   var txNew bool
-  tx, err = r.db.BeginTx(ctx, nil)
+  tx, err = r.{{.DSN}}.BeginTx(ctx, nil)
   if err != nil {
     return err
   }
@@ -206,14 +206,14 @@ func (r *{{.Model.ID}}StoreImpl) Update{{.ID}}(ctx context.Context, {{template "
   var tx *sql.Tx
   var err error
   var txNew bool
-  tx, err = r.db.BeginTx(ctx, nil)
+  tx, err = r.{{.Model.DSN}}.BeginTx(ctx, nil)
   if err != nil {
     return err
   }
   txNew = true
   defer tx.Rollback()
   args := []any{}
-  password, err := HashPassword(jsql.SecretValue(value))
+  password, err := util.HashPassword(jsql.SecretValue(value))
   if err != nil {
     return err
   }

@@ -42,6 +42,9 @@ func LoadModels(models map[string]ModelDef, dir, module string) error {
 				} else {
 					mo.Package = path.Base(dir)
 				}
+				if mo.DSN == "" {
+					mo.DSN = "db"
+				}
 				for i := range mo.Fields {
 					if mo.Fields[i].Field == "" {
 						mo.Fields[i].Field = toSnakeCase(mo.Fields[i].ID)

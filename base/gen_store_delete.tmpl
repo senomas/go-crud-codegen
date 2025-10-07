@@ -3,7 +3,7 @@ func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}
   var tx *sql.Tx
   var err error
   var txNew bool
-  tx, err = r.db.BeginTx(ctx, nil)
+  tx, err = r.{{.DSN}}.BeginTx(ctx, nil)
   if err != nil {
     return err
   }

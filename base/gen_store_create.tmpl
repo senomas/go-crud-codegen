@@ -70,7 +70,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
   var tx *sql.Tx
   var err error
   var txNew bool
-  tx, err = r.db.BeginTx(ctx, nil)
+  tx, err = r.{{.DSN}}.BeginTx(ctx, nil)
   txNew = true
   defer tx.Rollback()
   {{- range .Fields -}}
@@ -89,7 +89,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
         {{- "\n  "}}}
       {{- end}}
     {{- else if eq .Type "password" }}
-      obj_{{.ID}}, err := HashPassword(obj.{{.ID}})
+      obj_{{.ID}}, err := util.HashPassword(obj.{{.ID}})
       if err != nil {
         return nil, err
       }

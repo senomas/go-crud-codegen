@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"time"
+	"hanoman.co.id/bsn/mwui-api/util"
 	"hanoman.co.id/bsn/mwui-api/util/jsql"
 )
 
@@ -38,7 +39,7 @@ type {{.ID}}Filter struct {
 
 {{range .Fields }}{{if eq .Type "password" -}}
 func (m *{{.Model.ID}}) Verify{{.ID}}(value string) (bool, error) {
-  return VerifyPassword(value, m.{{.ID}})
+  return util.VerifyPassword(value, m.{{.ID}})
 }
 {{end}}{{end -}}
 

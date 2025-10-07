@@ -30,7 +30,7 @@ func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, 
   }
   qry += "\n  LIMIT 1"
 	logQueryArgs("store.{{.ID}}.FindOne", qry, args)
-  rows, err := r.db.QueryContext(ctx, qry, args...)
+  rows, err := r.{{.DSN}}.QueryContext(ctx, qry, args...)
   if err != nil {
 	  logErrorQueryArgs("store.{{.ID}}.FindOne", qry, args)
     return nil, err
@@ -62,7 +62,7 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
   }
 	logQueryArgs("store.{{.ID}}.FindCount", qry, args)
   total := int64(0)
-  err := r.db.QueryRowContext(ctx, qry, args...).Scan(&total)
+  err := r.{{.DSN}}.QueryRowContext(ctx, qry, args...).Scan(&total)
   if err != nil {
     slog.Error("Query count", "qry", qry, "Error", err)
     return nil, 0, err
@@ -96,7 +96,7 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
   }
   qry += fmt.Sprintf("\n  LIMIT %d OFFSET %d", limit, offset)
 	logQueryArgs("store.{{.ID}}.Find", qry, args)
-  rows, err := r.db.QueryContext(ctx, qry, args...)
+  rows, err := r.{{.DSN}}.QueryContext(ctx, qry, args...)
   if err != nil {
 	  logErrorQueryArgs("store.{{.ID}}.Find", qry, args)
     return nil, 0, err
