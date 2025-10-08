@@ -46,6 +46,7 @@ func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, 
 	    logErrorQueryArgs("store.{{.ID}}.FindOne.Scan", qry, args)
       return nil, err
     }
+    {{- template "GetScanFieldPost" . }}
     {{- template "ScanFieldRef" .}}
     return &obj, nil
   }
@@ -113,6 +114,7 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
 	    logErrorQueryArgs("store.{{.ID}}.Find.Scan", qry, args)
       return nil, total, err
     }
+    {{- template "GetScanFieldPost" . }}
     {{- template "ScanFieldRef" .}}
     list = append(list, obj)
   }
@@ -131,7 +133,7 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
   {{- $res := .Res -}}
   for _, f := range filter {
     switch f.Field {
-    {{range .m.Fields -}}{{if eq .Type "text" -}}
+    {{- range .m.Fields -}}{{if eq .Type "text"}}
     case {{$m.ID}}Field_{{.ID}}:
       switch f.Op {
       case FilterOp_EQ:
@@ -161,7 +163,53 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
       default:
         return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
       }
-    {{end}}{{end -}}
+    {{- else if eq .Type "integer" "timestamp" "date" "time"}}
+    case {{$m.ID}}Field_{{.ID}}:
+      switch f.Op {
+      case FilterOp_EQ:
+				var val {{.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = {{ template "QryParamArg" .}})
+      case FilterOp_Greater:
+				var val {{.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} > {{ template "QryParamArg" .}})
+      case FilterOp_GreaterEq:
+				var val {{.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} >= {{ template "QryParamArg" .}})
+      case FilterOp_LessEq:
+				var val {{.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} <= {{ template "QryParamArg" .}})
+      case FilterOp_Less:
+				var val {{.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} < {{ template "QryParamArg" .}})
+      default:
+        return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
+      }
+    {{- end}}{{end}}
     default:
       return {{$res}}fmt.Errorf("unsupported filter field %v", f.Field)
     }

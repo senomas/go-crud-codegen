@@ -36,6 +36,7 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
       )
       return nil, err
     }
+    {{- template "GetScanFieldPost" . }}
     {{- template "GetScanFieldRef" .}}
     {{- template "GetScanFieldManyRef" .}}
     for rows.Next() {
@@ -50,6 +51,7 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
         )
         return nil, err
       }
+      {{- template "GetScanFieldPost" . }}
       {{- template "GetScanFieldManyRef" .}}
     }
   }
@@ -96,6 +98,7 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       )
       return nil, err
     }
+    {{- template "GetScanFieldPost" . }}
     {{- template "GetScanFieldManyRef" .Model}}
   }
   return &obj, nil
@@ -220,6 +223,14 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       {{- end}}
     {{-  else }}
       &obj.{{.ID}},
+    {{- end}}
+  {{- end}}
+{{- end}}
+
+{{- define "GetScanFieldPost" }}
+  {{- range .Fields -}}
+    {{- if eq .Type "timestamp" }}
+      obj.{{.ID}} = util.AsZoneWallClock(obj.{{.ID}})
     {{- end}}
   {{- end}}
 {{- end}}
