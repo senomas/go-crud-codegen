@@ -9,7 +9,7 @@ func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}
   }
   txNew = true
   qry := `
-    DELETE FROM {{.Table}} WHERE
+    DELETE FROM {{.Table}} obj WHERE
       {{ template "WhereFk" . }}`
   slog.Debug("store.{{.ID}}.Delete", "qry", qry,
     {{- range .PKeys -}}

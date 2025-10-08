@@ -54,6 +54,8 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
       {{- template "GetScanFieldPost" . }}
       {{- template "GetScanFieldManyRef" .}}
     }
+  } else {
+    return nil, fmt.Errorf("NOT_FOUND")
   }
   return &obj, nil
 }
