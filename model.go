@@ -44,19 +44,20 @@ type FK struct {
 }
 
 type FieldDef struct {
-	ID         string   `yaml:"id"`
-	Name       string   `yaml:"name,omitempty"`
-	Field      string   `yaml:"field,omitempty"`
-	Type       string   `yaml:"type"`
-	Case       string   `yaml:"case,omitempty"`
-	Length     int      `yaml:"length,omitempty"`
-	Null       bool     `yaml:"nullable,omitempty"`
-	Ref        string   `yaml:"ref"`
-	CRefKeys   []FK     `yaml:"refKeys"`
-	CRefFields []string `yaml:"refFields"`
-	Seq        int      `yaml:"seq,omitempty"`
-	MapTable   string   `yaml:"mapTable,omitempty"`
-	CMapKeys   []FK     `yaml:"mapKeys"`
+	ID         string         `yaml:"id"`
+	Name       string         `yaml:"name,omitempty"`
+	Field      string         `yaml:"field,omitempty"`
+	Type       string         `yaml:"type"`
+	Case       string         `yaml:"case,omitempty"`
+	Length     int            `yaml:"length,omitempty"`
+	Null       bool           `yaml:"nullable,omitempty"`
+	Ref        string         `yaml:"ref"`
+	CRefKeys   []FK           `yaml:"refKeys"`
+	CRefFields []string       `yaml:"refFields"`
+	Seq        int            `yaml:"seq,omitempty"`
+	MapTable   string         `yaml:"mapTable,omitempty"`
+	CMapKeys   []FK           `yaml:"mapKeys"`
+	Args       map[string]any `yaml:"args,omitempty"`
 	model      func() *ModelDef
 }
 

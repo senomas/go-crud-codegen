@@ -59,3 +59,17 @@
   {{- end}}
 {{- end -}}
 
+{{define "FilterOp_ILike" -}}
+	var val {{.GoType}}
+	err := json.Unmarshal(f.Value, &val)
+	if err != nil {
+    return {{.Args.Res}}err
+  }
+  {{- if eq .GoType "jsql.NullString"}}
+    val.String = strings.ToLower(val.String)
+  {{- else}}
+    val = strings.ToLower(val)
+  {{- end}}
+	args = append(args, val)
+  qfilter = append(qfilter, fmt.Sprintf("LOWER(obj.{{.Field}}) LIKE {{ template "QryParamArg" .}})
+{{- end -}}

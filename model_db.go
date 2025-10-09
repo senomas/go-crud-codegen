@@ -4,7 +4,7 @@ import (
 	"slices"
 )
 
-func (f *FieldDef) GoType() string {
+func (f FieldDef) GoType() string {
 	vt := f.Type
 	if f.Null {
 		switch f.Type {
@@ -52,7 +52,7 @@ func (f *FieldDef) GoType() string {
 	return vt
 }
 
-func (f *FieldDef) GoSqlNullType() string {
+func (f FieldDef) GoSqlNullType() string {
 	vt := f.Type
 	switch f.Type {
 	case "autoincrement":
@@ -74,7 +74,7 @@ func (f *FieldDef) GoSqlNullType() string {
 	return vt
 }
 
-func (f *FieldDef) GoSqlNullValue() string {
+func (f FieldDef) GoSqlNullValue() string {
 	vt := f.Type
 	switch f.Type {
 	case "autoincrement":
@@ -96,15 +96,15 @@ func (f *FieldDef) GoSqlNullValue() string {
 	return vt
 }
 
-func (f *FieldDef) GoLogType() string {
+func (f FieldDef) GoLogType() string {
 	return f.goLogType(f.Null)
 }
 
-func (f *FieldDef) GoLogNullType() string {
+func (f FieldDef) GoLogNullType() string {
 	return f.goLogType(true)
 }
 
-func (f *FieldDef) goLogType(isNull bool) string {
+func (f FieldDef) goLogType(isNull bool) string {
 	vt := f.Type
 	switch f.Type {
 	case "autoincrement", "version":
@@ -147,11 +147,11 @@ func (f *FieldDef) goLogType(isNull bool) string {
 	return vt
 }
 
-func (f *FieldDef) IsPk() bool {
+func (f FieldDef) IsPk() bool {
 	return slices.Contains(f.Model().CPKeys, f.ID)
 }
 
-func (f *FieldDef) IsUpdatable() bool {
+func (f FieldDef) IsUpdatable() bool {
 	if f.Type == "password" || f.Type == "version" {
 		return false
 	}

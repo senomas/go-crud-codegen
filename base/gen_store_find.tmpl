@@ -128,6 +128,16 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
   {{- end}}) FROM {{.Table}} obj
 {{- end -}}
 
+{{define "FilterOp_ILike" -}}
+	var val {{.GoType}}
+	err := json.Unmarshal(f.Value, &val)
+	if err != nil {
+    return {{.Args.Res}}err
+  }
+	args = append(args, val)
+  qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} ILIKE {{ template "QryParamArg" .}})
+{{- end -}}
+
 {{define "FilterOp" -}}
   {{- $m := .m -}}
   {{- $res := .Res -}}
@@ -163,13 +173,7 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
 				args = append(args, val)
         qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} LIKE {{ template "QryParamArg" .}})
       case FilterOp_ILike:
-				var val {{.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} ILIKE {{ template "QryParamArg" .}})
+        {{- template "FilterOp_ILike" (fieldArgs . "Res" $res)}}
       default:
         return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
       }

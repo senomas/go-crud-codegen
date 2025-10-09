@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"path"
 	"strings"
 	"text/template"
@@ -28,6 +29,16 @@ func Templates(dir, dialect string) *template.Template {
 				m[k] = kv[i+1]
 			}
 			return m, nil
+		},
+		"fieldArgs": func(field FieldDef, key string, value any) FieldDef {
+			nf := field // copy
+			if field.Args == nil {
+				nf.Args = map[string]any{}
+			} else {
+				nf.Args = maps.Clone(field.Args)
+			}
+			nf.Args[key] = value
+			return nf
 		},
 		"snakeCase": toSnakeCase,
 	}).ParseGlob(path.Join(dir, "base", "*.tmpl"))
