@@ -30,6 +30,16 @@ func Templates(dir, dialect string) *template.Template {
 			}
 			return m, nil
 		},
+		"modelArgs": func(m ModelDef, key string, value any) ModelDef {
+			mf := m // copy
+			if m.Args == nil {
+				mf.Args = map[string]any{}
+			} else {
+				mf.Args = maps.Clone(m.Args)
+			}
+			mf.Args[key] = value
+			return mf
+		},
 		"fieldArgs": func(field FieldDef, key string, value any) FieldDef {
 			nf := field // copy
 			if field.Args == nil {

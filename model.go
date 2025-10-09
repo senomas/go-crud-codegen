@@ -6,12 +6,13 @@ import (
 )
 
 type ModelDef struct {
-	DB      string      `yaml:"db,omitempty"`
-	Table   string      `yaml:"table"`
-	Fields  []FieldDef  `yaml:"fields"`
-	CPKeys  []string    `yaml:"pkeys"`
-	Uniques []UniqueDef `yaml:"uniques"`
-	Seq     int         `yaml:"seq,omitempty"`
+	DB      string         `yaml:"db,omitempty"`
+	Table   string         `yaml:"table"`
+	Fields  []FieldDef     `yaml:"fields"`
+	CPKeys  []string       `yaml:"pkeys"`
+	Uniques []UniqueDef    `yaml:"uniques"`
+	Seq     int            `yaml:"seq,omitempty"`
+	Args    map[string]any `yaml:"args,omitempty"`
 	ID      string
 	Path    string
 	Package string
@@ -19,7 +20,7 @@ type ModelDef struct {
 	Module  string
 }
 
-func (m *ModelDef) PKeys() []*FieldDef {
+func (m ModelDef) PKeys() []*FieldDef {
 	res := []*FieldDef{}
 	for _, f := range m.Fields {
 		if slices.Contains(m.CPKeys, f.ID) {
@@ -29,7 +30,7 @@ func (m *ModelDef) PKeys() []*FieldDef {
 	return res
 }
 
-func (m *ModelDef) Field(id string) (*FieldDef, error) {
+func (m ModelDef) Field(id string) (*FieldDef, error) {
 	for _, f := range m.Fields {
 		if f.ID == id {
 			return &f, nil
@@ -73,11 +74,13 @@ type FieldRef struct {
 	ID    string
 	Field string
 	Ref   *FieldDef
+	Args  map[string]any
 }
 
 type UniqueDef struct {
-	ID      string   `yaml:"id"`
-	CFields []string `yaml:"fields,omitempty"`
+	ID      string         `yaml:"id"`
+	CFields []string       `yaml:"fields,omitempty"`
+	Args    map[string]any `yaml:"args,omitempty"`
 	model   func() *ModelDef
 }
 
