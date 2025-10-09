@@ -48,6 +48,7 @@ type FieldDef struct {
 	Name       string   `yaml:"name,omitempty"`
 	Field      string   `yaml:"field,omitempty"`
 	Type       string   `yaml:"type"`
+	Case       string   `yaml:"case,omitempty"`
 	Length     int      `yaml:"length,omitempty"`
 	Null       bool     `yaml:"nullable,omitempty"`
 	Ref        string   `yaml:"ref"`

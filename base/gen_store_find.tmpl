@@ -142,6 +142,11 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
 				if err != nil {
           return {{$res}}err
         }
+        {{- if eq .Case "upper" }}
+          val = strings.ToUpper(val)
+        {{- else if eq .Case "lower" }}
+          val = strings.ToLower(val)
+        {{- end}}
 				args = append(args, val)
         qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = {{ template "QryParamArg" .}})
       case FilterOp_Like:
@@ -150,6 +155,11 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
 				if err != nil {
           return {{$res}}err
         }
+        {{- if eq .Case "upper" }}
+          val = strings.ToUpper(val)
+        {{- else if eq .Case "lower" }}
+          val = strings.ToLower(val)
+        {{- end}}
 				args = append(args, val)
         qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} LIKE {{ template "QryParamArg" .}})
       case FilterOp_ILike:
@@ -215,3 +225,16 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
     }
   }
 {{- end -}}
+
+
+{{- define "PreFindObj"}}
+  {{- range .Fields -}}
+    {{- if eq .Type "text" }}
+      {{- if eq .Case "upper" }}
+        {{- "\n    "}}obj.{{.ID}} = strings.ToUpper(obj.{{.ID}}) 
+      {{- else if eq .Case "lower" }}
+        {{- "\n    "}}obj.{{.ID}} = strings.ToLower(obj.{{.ID}})
+      {{- end}}
+    {{- end}}
+  {{- end}}
+ {{- end -}}

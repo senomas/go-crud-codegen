@@ -35,7 +35,7 @@ func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}
     return err
   }
   if ra == 0 {
-    return fmt.Errorf("no rows affected")
+    return fmt.Errorf("NO_ROWS_AFFECTED")
   }
   if ra != 1 {
     return fmt.Errorf("invalid rows affected (%d)", ra)

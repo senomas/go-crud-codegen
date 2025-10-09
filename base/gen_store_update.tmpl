@@ -3,6 +3,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
   var tx *sql.Tx
   var err error
   var txNew bool
+  {{- template "PreUpdateObj" . }}
   tx, err = r.{{.DB}}.BeginTx(ctx, nil)
   if err != nil {
     return err
@@ -61,7 +62,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
     return err
   }
   if ra == 0 {
-    return fmt.Errorf("no rows affected")
+    return fmt.Errorf("NO_ROWS_AFFECTED")
   }
   if ra != 1 {
     return fmt.Errorf("invalid rows affected (%d)", ra)
@@ -244,7 +245,7 @@ func (r *{{.Model.ID}}StoreImpl) Update{{.ID}}(ctx context.Context, {{template "
     return err
   }
   if ra == 0 {
-    return fmt.Errorf("no rows affected")
+    return fmt.Errorf("NO_ROWS_AFFECTED")
   }
   if ra != 1 {
     return fmt.Errorf("invalid rows affected (%d)", ra)
@@ -260,10 +261,22 @@ func (r *{{.Model.ID}}StoreImpl) Update{{.ID}}(ctx context.Context, {{template "
 {{- end}}{{end}}
 {{- end}}
 
-{{ define "QryParam" -}}
+{{- define "QryParam" -}}
   ${{ . }}
 {{- end -}}
 
-{{ define "QryParamArg" -}}
+{{- define "QryParamArg" -}}
   $%d", len(args))
 {{- end -}}
+
+{{- define "PreUpdateObj"}}
+  {{- range .Fields -}}
+    {{- if eq .Type "text" }}
+      {{- if eq .Case "upper" }}
+        {{- "\n    "}}obj.{{.ID}} = strings.ToUpper(obj.{{.ID}}) 
+      {{- else if eq .Case "lower" }}
+        {{- "\n    "}}obj.{{.ID}} = strings.ToLower(obj.{{.ID}})
+      {{- end}}
+    {{- end}}
+  {{- end}}
+ {{- end -}}

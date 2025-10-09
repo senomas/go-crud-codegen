@@ -1,75 +1,9 @@
-{{define "CreateReturning" -}}
-{{- end -}}
-
-{{define "CreateExec" -}}
-  res, err := tx.ExecContext(ctx, qry,
-   {{- range .Fields -}}{{$f := . -}}
-      {{- if eq .Type "autoincrement" -}}
-      {{- else if eq .Type "many-to-many" }}
-      {{- else if eq .Type "many-to-one" }}
-        {{- range .RefKeys}}
-          {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}},
-        {{- end}}
-      {{- else if eq .Type "password" }}
-        {{- "\n    "}}obj_{{.ID}},
-      {{- else }}
-        {{- "\n    "}}obj.{{.ID}},
-      {{- end}}
-    {{- end}}
-  )
-  if err != nil {
-    slog.Error("store.{{.ID}}.Create",
-      slog.String("qry", qry),
-      {{- range .Fields -}}{{$f := . -}}
-        {{- if eq .Type "autoincrement" -}}
-        {{- else if eq .Type "many-to-many" }}
-        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
-          {{- range .RefKeys}}
-            {{- "\n    "}}{{.Ref.GoLogNullType}}("{{$f.ID}}.{{.Ref.keld}}", obj{{$f.ID}}_{{.Ref.ID}}),
-          {{- end}}
-        {{- else if eq .Type "password" }}
-          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
-        {{- else }}
-          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
-        {{- end}}
-      {{- end}}
-    )
-    return nil, err
-  }
-	ra, err := res.RowsAffected()
-	if err != nil {
-    slog.Error("store.{{.ID}}.Create.RowsAffected",
-      slog.String("qry", qry),
-      {{- range .Fields -}}{{$f := . -}}
-        {{- if eq .Type "autoincrement" -}}
-        {{- else if eq .Type "many-to-many" }}
-        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
-          {{- range .RefKeys}}
-            {{- "\n    "}}{{.Ref.GoLogNullType}}("{{$f.ID}}.{{.Ref.Field}}", obj{{$f.ID}}_{{.Ref.ID}}),
-          {{- end}}
-        {{- else if eq .Type "password" }}
-          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
-        {{- else }}
-          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
-        {{- end}}
-      {{- end}}
-    )
-		return nil, err
-	}
-	if ra != 1 {
-		return nil, fmt.Errorf("ERR_INSERT_FAILED")
-	}
-	obj.ID, err = res.LastInsertId()
-  if err != nil {
-    return nil, err
-  }
-{{- end -}}
-
 {{ define "StoreImplCreate" -}}
 func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, error) {
   var tx *sql.Tx
   var err error
   var txNew bool
+  {{- template "PreUpdateObj" . }}
   tx, err = r.{{.DB}}.BeginTx(ctx, nil)
   txNew = true
   defer tx.Rollback()
@@ -216,3 +150,72 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
   return &obj, nil
 }
 {{- end -}}
+
+{{define "CreateReturning" -}}
+{{- end -}}
+
+{{define "CreateExec" -}}
+  res, err := tx.ExecContext(ctx, qry,
+   {{- range .Fields -}}{{$f := . -}}
+      {{- if eq .Type "autoincrement" -}}
+      {{- else if eq .Type "many-to-many" }}
+      {{- else if eq .Type "many-to-one" }}
+        {{- range .RefKeys}}
+          {{- "\n    "}}obj{{$f.ID}}_{{.Ref.ID}},
+        {{- end}}
+      {{- else if eq .Type "password" }}
+        {{- "\n    "}}obj_{{.ID}},
+      {{- else }}
+        {{- "\n    "}}obj.{{.ID}},
+      {{- end}}
+    {{- end}}
+  )
+  if err != nil {
+    slog.Error("store.{{.ID}}.Create",
+      slog.String("qry", qry),
+      {{- range .Fields -}}{{$f := . -}}
+        {{- if eq .Type "autoincrement" -}}
+        {{- else if eq .Type "many-to-many" }}
+        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+          {{- range .RefKeys}}
+            {{- "\n    "}}{{.Ref.GoLogNullType}}("{{$f.ID}}.{{.Ref.keld}}", obj{{$f.ID}}_{{.Ref.ID}}),
+          {{- end}}
+        {{- else if eq .Type "password" }}
+          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
+        {{- else }}
+          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
+        {{- end}}
+      {{- end}}
+    )
+    return nil, err
+  }
+	ra, err := res.RowsAffected()
+	if err != nil {
+    slog.Error("store.{{.ID}}.Create.RowsAffected",
+      slog.String("qry", qry),
+      {{- range .Fields -}}{{$f := . -}}
+        {{- if eq .Type "autoincrement" -}}
+        {{- else if eq .Type "many-to-many" }}
+        {{- else if eq .Type "many-to-one" }}{{$fb := . }}
+          {{- range .RefKeys}}
+            {{- "\n    "}}{{.Ref.GoLogNullType}}("{{$f.ID}}.{{.Ref.Field}}", obj{{$f.ID}}_{{.Ref.ID}}),
+          {{- end}}
+        {{- else if eq .Type "password" }}
+          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
+        {{- else }}
+          {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
+        {{- end}}
+      {{- end}}
+    )
+		return nil, err
+	}
+	if ra != 1 {
+		return nil, fmt.Errorf("ERR_INSERT_FAILED")
+	}
+	obj.ID, err = res.LastInsertId()
+  if err != nil {
+    return nil, err
+  }
+{{- end -}}
+
+
