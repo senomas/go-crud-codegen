@@ -21,6 +21,20 @@ import (
   {{- end}}
 {{- end }}
 
+// swagger: model {{.ID}}FindParam
+type {{.ID}}FindParam struct {
+  Limit   int                    `json:"limit"`
+  Offset  int64                  `json:"offset"`
+	Filter  []model.{{.ID}}Filter  `json:"filter"`
+	Sorting []model.{{.ID}}Sorting `json:"sorting"`
+}
+
+// swagger: model {{.ID}}UpdateParam
+type {{.ID}}UpdateParam struct {
+  Value model.{{.ID}}         `json:"value"`
+  Fields []model.{{.ID}}Field `json:"fields"`
+}
+
 func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store, authenticate Authenticate) {
   mux.HandleFunc("PUT /{{snakeCase .ID}}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "create") {
@@ -74,6 +88,19 @@ func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store, authenticate 
   })
 }
 
+// Create{{.ID}}   godoc
+// @Summary      Create {{snakeCase .ID}}
+// @Description  Create {{snakeCase .ID}}
+// @Tags         {{snakeCase .ID}}
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        {{snakeCase .ID}}  body    model.{{.ID}}  true  "{{.ID}} object"
+// @Success      200  {object}  model.{{.ID}}
+// @Failure      400  {object}  HttpResult
+// @Failure      404  {object}  HttpResult
+// @Failure      500  {object}  HttpResult
+// @Router       /{{snakeCase .ID}} [put]
 func {{.ID}}Create(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
   var obj model.{{.ID}}
   err := json.NewDecoder(r.Body).Decode(&obj)
@@ -84,7 +111,11 @@ func {{.ID}}Create(ctx context.Context, store model.Store, w http.ResponseWriter
   {{range .Fields -}}
     {{if eq .ID "CreatedBy" "UpdatedBy" -}}{{if eq .Type "many-to-one" -}}
     	if user, ok := ctx.Value(HandlerCtxKeyUser).(*LoginUser); ok && user.User != nil {
-    		obj.{{.ID}} = user.User
+    		obj.{{.ID}} = &model.UserRef{
+          {{- range .Model.PKeys }}
+      	    {{.ID}}: user.User.{{.ID}},
+          {{- end}}
+        }
     	} else {
     		return fmt.Errorf("missing user in context")
     	}
@@ -100,6 +131,24 @@ func {{.ID}}Create(ctx context.Context, store model.Store, w http.ResponseWriter
 	return json.NewEncoder(w).Encode(res)
 }
 
+// Show{{.ID}}   godoc
+// @Summary      Get {{snakeCase .ID}} By PK
+// @Description  Get {{snakeCase .ID}} By PK
+// @Tags         {{snakeCase .ID}}
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+{{- range .PKeys }}
+// @Param        {{.Name}}   path      {{.GoJsonType}}  true  "{{.Model.ID}} {{.ID}}"
+{{- end}}
+// @Success      200  {object}  model.{{.ID}}
+// @Failure      400  {object}  HttpResult
+// @Failure      404  {object}  HttpResult
+// @Failure      500  {object}  HttpResult
+// @Router       /{{snakeCase .ID}}
+{{- range .PKeys -}}
+/{ {{- .Name -}} }
+{{- end}} [get]
 func {{.ID}}Get(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
   {{- range .PKeys -}}
     {{- if eq .Type "autoincrement" "integer"}}
@@ -128,14 +177,22 @@ func {{.ID}}Get(ctx context.Context, store model.Store, w http.ResponseWriter, r
 	return json.NewEncoder(w).Encode(obj)
 }
 
+// Find{{.ID}}   godoc
+// @Summary      Find {{snakeCase .ID}}
+// @Description  get string by ID
+// @Tags         {{snakeCase .ID}}
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        param  body    {{.ID}}FindParam  true  "{{.ID}} object"
+// @Success      200  {object}  model.{{.ID}}
+// @Failure      400  {object}  HttpResult
+// @Failure      404  {object}  HttpResult
+// @Failure      500  {object}  HttpResult
+// @Router       /{{snakeCase .ID}} [post]
 func {{.ID}}Find(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
-	var obj struct {
-    Limit   int                    `json:"limit"`
-    Offset  int64                  `json:"offset"`
-		Filter  []model.{{.ID}}Filter  `json:"filter"`
-		Sorting []model.{{.ID}}Sorting `json:"sorting"`
-	}
-	err := json.NewDecoder(r.Body).Decode(&obj)
+	var obj {{.ID}}FindParam
+  err := json.NewDecoder(r.Body).Decode(&obj)
 	if err != nil {
 		slog.Warn("invalid body", "err", err)
 		return fmt.Errorf("invalid body")
@@ -152,11 +209,27 @@ func {{.ID}}Find(ctx context.Context, store model.Store, w http.ResponseWriter, 
 	return json.NewEncoder(w).Encode(result)
 }
 
+// Update{{.ID}}   godoc
+// @Summary      Update {{snakeCase .ID}}
+// @Description  Update {{snakeCase .ID}}
+// @Tags         {{snakeCase .ID}}
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+{{- range .PKeys }}
+// @Param        {{.Name}}   path      {{.GoJsonType}}  true  "{{.Model.ID}} {{.ID}}"
+{{- end}}
+// @Param        param  body    {{.ID}}UpdateParam  true  "{{.ID}} object"
+// @Success      200  {object}  model.{{.ID}}
+// @Failure      400  {object}  HttpResult
+// @Failure      404  {object}  HttpResult
+// @Failure      500  {object}  HttpResult
+// @Router       /{{snakeCase .ID}}
+{{- range .PKeys -}}
+/{ {{- .Name -}} }
+{{- end}} [patch]
 func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
-  var obj struct {
-    Value model.{{.ID}} `json:"value"`
-    Fields []model.{{.ID}}Field `json:"fields"`
-  }
+  var obj {{.ID}}UpdateParam
   err := json.NewDecoder(r.Body).Decode(&obj)
   if err != nil {
     slog.Warn("invalid body", "err", err)
@@ -165,7 +238,11 @@ func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter
   {{range .Fields -}}
     {{if eq .ID "UpdatedBy" -}}{{if eq .Type "many-to-one" -}}
     	if user, ok := ctx.Value(HandlerCtxKeyUser).(*LoginUser); ok && user.User != nil {
-    		obj.Value.{{.ID}} = user.User
+     		obj.Value.{{.ID}} = &model.UserRef{
+          {{- range .Model.PKeys }}
+      	    {{.ID}}: user.User.{{.ID}},
+          {{- end}}
+        }
     		obj.Fields = append(obj.Fields, model.UserField_{{.ID}})
     	} else {
     		return fmt.Errorf("missing user in context")
@@ -196,6 +273,24 @@ func {{.ID}}Update(ctx context.Context, store model.Store, w http.ResponseWriter
 	return json.NewEncoder(w).Encode(obj.Value)
 }
 
+// Delete{{.ID}}   godoc
+// @Summary      Delete {{snakeCase .ID}}
+// @Description  Delete
+// @Tags         {{snakeCase .ID}}
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+{{- range .PKeys }}
+// @Param        {{.Name}}   path      {{.GoJsonType}}  true  "{{.Model.ID}} {{.ID}}"
+{{- end}}
+// @Success      200  {object}  any
+// @Failure      400  {object}  HttpResult
+// @Failure      404  {object}  HttpResult
+// @Failure      500  {object}  HttpResult
+// @Router       /{{snakeCase .ID}}
+{{- range .PKeys -}}
+/{ {{- .Name -}} }
+{{- end}} [delete]
 func {{.ID}}Delete(ctx context.Context, store model.Store, w http.ResponseWriter, r *http.Request) error {
   var err error
   {{- range .PKeys -}}

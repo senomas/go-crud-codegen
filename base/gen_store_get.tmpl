@@ -240,19 +240,36 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
 {{- define "GetScanFieldRef" -}}
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- range .RefKeys}}
-        if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
-          if obj.{{$fb.ID}} == nil {
-        	  obj.{{$fb.ID}} = &{{.Ref.Model.ID}}{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}}
-          } else {
-        	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+      {{- if eq .Ref "User"}}
+        {{- range .RefKeys}}
+          if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+            if obj.{{$fb.ID}} == nil {
+          	  obj.{{$fb.ID}} = &UserRef{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}}
+            } else {
+          	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+            }
           }
-        }
-      {{- end}}
-      {{- range .RefFields}}
-        if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
-          obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
-        }
+        {{- end}}
+        {{- range .RefFields}}
+          if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+            obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+          }
+        {{- end}}
+      {{- else}}
+        {{- range .RefKeys}}
+          if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+            if obj.{{$fb.ID}} == nil {
+          	  obj.{{$fb.ID}} = &{{.Ref.Model.ID}}{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}}
+            } else {
+          	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+            }
+          }
+        {{- end}}
+        {{- range .RefFields}}
+          if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+            obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue }}
+          }
+        {{- end}}
       {{- end}}
     {{- end}}
   {{- end}}

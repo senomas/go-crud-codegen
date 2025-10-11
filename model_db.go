@@ -52,6 +52,27 @@ func (f FieldDef) GoType() string {
 	return vt
 }
 
+func (f FieldDef) GoJsonType() string {
+	vt := "any"
+	switch f.Type {
+	case "autoincrement":
+		vt = "integer"
+	case "version":
+		vt = "integer"
+	case "text":
+		vt = "string"
+	case "int", "number":
+		vt = "integer"
+	case "json":
+		vt = "any"
+	case "password", "secret":
+		vt = "string"
+	case "timestamp":
+		vt = "time.Time"
+	}
+	return vt
+}
+
 func (f FieldDef) GoSqlNullType() string {
 	vt := f.Type
 	switch f.Type {

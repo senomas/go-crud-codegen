@@ -99,13 +99,23 @@
   {{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range .RefKeys }}
-        if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
-          if obj.{{$fb.ID}} == nil {
-        	  obj.{{$fb.ID}} = &{{.Ref.Model.ID}}{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}}
-          } else {
-        	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}
+        {{- if eq .Ref.Model.ID "User"}}
+          if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+            if obj.{{$fb.ID}} == nil {
+          	  obj.{{$fb.ID}} = &UserRef{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}}
+            } else {
+          	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}
+            }
           }
-        }
+        {{- else}}
+          if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {
+            if obj.{{$fb.ID}} == nil {
+          	  obj.{{$fb.ID}} = &{{.Ref.Model.ID}}{ {{.Ref.ID}}: ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}}
+            } else {
+          	  obj.{{$fb.ID}}.{{.Ref.ID}} = ref{{$fb.ID}}_{{.Ref.ID}}.{{.Ref.GoSqlNullValue}}
+            }
+          }
+        {{- end}}
       {{- end}}
       {{- range .RefFields }}
         if ref{{$fb.ID}}_{{.Ref.ID}}.Valid {

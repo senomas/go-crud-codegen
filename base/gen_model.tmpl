@@ -12,9 +12,26 @@ import (
 	"hanoman.co.id/bsn/mwui-api/util/jsql"
 )
 
+{{- if eq .ID "User" }}
+// swagger: model {{.ID}}Ref
+type {{.ID}}Ref struct {
+  {{- range .Fields }}
+    {{- if eq .Type "many-to-many" "many-to-one" "password" "secret"}}
+    {{- else}}
+	  {{.ID}}       {{.GoType}}   `json:"{{.Name}}"`
+    {{- end}}
+  {{- end}}
+}
+{{- end}}
+
+// swagger: model {{.ID}}
 type {{.ID}} struct {
   {{- range .Fields }}
+    {{- if and (eq .Type "many-to-one") (eq .Ref "User") }}
+	  {{.ID}}       *UserRef   `json:"{{.Name}}"`
+    {{- else}}
 	  {{.ID}}       {{.GoType}}   `json:"{{.Name}}"`
+    {{- end}}
   {{- end}}
 }
 
@@ -26,11 +43,13 @@ const (
 	{{end}}
 )
 
+// swagger: model {{.ID}}Sorting
 type {{.ID}}Sorting struct {
 	Field {{.ID}}Field  `json:"field"`
 	Dir   SortDir         `json:"dir"`
 }
 
+// swagger: model {{.ID}}Filter
 type {{.ID}}Filter struct {
 	Field {{.ID}}Field  `json:"field"`
 	Op    FilterOp   `json:"op"`
