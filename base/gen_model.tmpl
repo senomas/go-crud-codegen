@@ -39,10 +39,7 @@ type {{.ID}}Field string
 
 const (
 	{{range .Fields -}}
-  	xxx{{.Model.ID}}Field_{{.ID}}       {{.Model.ID}}Field = "{{.Name}}"
-    {{if eq .Type "many-to-onw" -}}
-      xxx {{.Ref}}Field = "xxx"
-    {{end -}}
+  	{{.Model.ID}}Field_{{.ID}}       {{.Model.ID}}Field = "{{.Name}}"
 	{{end -}}
 )
 

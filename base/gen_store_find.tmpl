@@ -15,14 +15,24 @@ func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, 
     sorts := []string{}
     for _, f := range sorting {
       switch f.Field {
-      {{range .Fields }}{{if eq .Type "text" -}}
+      {{range .Fields }}{{if eq .Type "text" "int" "autoincrement" "timestamp"}}
       case {{.Model.ID}}Field_{{.ID}}:
         if f.Dir == SortDir_ASC {
           sorts = append(sorts, "obj.{{.Field}} ASC")
         } else {
           sorts = append(sorts, "obj.{{.Field}} DESC")
         }
-      {{end}}{{end}}}
+      {{- else if eq .Type "many-to-one"}}{{$fb := .}}
+        {{- if eq (len .RefKeys) 1 }}
+        {{- range .RefKeys}}{{if eq .Ref.Type "text" "int" "autoincrement" "timestamp" }}
+          case {{$fb.Model.ID}}Field_{{$fb.ID}}:
+            if f.Dir == SortDir_ASC {
+              sorts = append(sorts, "obj{{$fb.ID}}.{{.Ref.Field}} ASC")
+            } else {
+              sorts = append(sorts, "obj{{$fb.ID}}.{{.Ref.Field}} DESC")
+            }
+        {{- end}}{{end}}{{end}}
+      {{- end}}{{end}}}
     }
     if len(sorts) > 0 {
       qry += "\n  ORDER BY " + strings.Join(sorts, ", ")
@@ -79,14 +89,24 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
     sorts := []string{}
     for _, f := range sorting {
       switch f.Field {
-      {{range .Fields }}{{if eq .Type "text" "int" "autoincrement" -}}
+      {{range .Fields }}{{if eq .Type "text" "int" "autoincrement" }}
       case {{.Model.ID}}Field_{{.ID}}:
         if f.Dir == SortDir_ASC {
           sorts = append(sorts, "obj.{{.Field}} ASC")
         } else {
           sorts = append(sorts, "obj.{{.Field}} DESC")
         }
-      {{end}}{{end}}
+      {{- else if eq .Type "many-to-one"}}{{$fb := .}}
+        {{- if eq (len .RefKeys) 1 }}
+        {{- range .RefKeys}}{{if eq .Ref.Type "text" "int" "autoincrement" "timestamp" }}
+          case {{$fb.Model.ID}}Field_{{$fb.ID}}:
+            if f.Dir == SortDir_ASC {
+              sorts = append(sorts, "obj{{$fb.ID}}.{{.Ref.Field}} ASC")
+            } else {
+              sorts = append(sorts, "obj{{$fb.ID}}.{{.Ref.Field}} DESC")
+            }
+        {{- end}}{{end}}{{end}}
+      {{- end}}{{end}}
       default:
         return nil, 0, fmt.Errorf("field %v is unsorted", f)
       }
@@ -125,7 +145,7 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
 {{define "QueryFindCount" -}}
   SELECT COUNT(
   {{- $idx := 0}}{{range .PKeys -}}{{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}obj.{{.Field -}}
-  {{- end}}) FROM {{.Table}} obj
+  {{- end}}) FROM {{template "SelectFrom" . }}
 {{- end -}}
 
 {{define "FilterOp_ILike" -}}
@@ -223,13 +243,48 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
       default:
         return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
       }
-    {{- end}}{{end}}
+    {{- else if eq .Type "many-to-one"}}{{$fb := .}}
+    {{- if eq (len .RefKeys) 1 }}
+    {{- range .RefKeys -}}{{if eq .Ref.Type "text"}}
+    case {{$m.ID}}Field_{{.ID}}:
+      switch f.Op {
+      case FilterOp_EQ:
+				var val {{.Ref.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+        {{- if eq .Ref.Case "upper" }}
+          val = strings.ToUpper(val)
+        {{- else if eq .Ref.Case "lower" }}
+          val = strings.ToLower(val)
+        {{- end}}
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj{{$fb.ID}}.{{.Field}} = {{ template "QryParamArg" .}})
+      case FilterOp_Like:
+				var val {{.Ref.GoType}}
+				err := json.Unmarshal(f.Value, &val)
+				if err != nil {
+          return {{$res}}err
+        }
+        {{- if eq .Ref.Case "upper" }}
+          val = strings.ToUpper(val)
+        {{- else if eq .Ref.Case "lower" }}
+          val = strings.ToLower(val)
+        {{- end}}
+				args = append(args, val)
+        qfilter = append(qfilter, fmt.Sprintf("obj{{$fb.ID}}.{{.Field}} LIKE {{ template "QryParamArg" .}})
+      case FilterOp_ILike:
+        {{- template "FilterOp_ILike" (fieldArgs .Ref "Res" $res)}}
+      default:
+        return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
+      }
+    {{- end}}{{end}}{{end}}{{end}}{{end}}
     default:
       return {{$res}}fmt.Errorf("unsupported filter field %v", f.Field)
     }
   }
 {{- end -}}
-
 
 {{- define "PreFindObj"}}
   {{- range .Fields -}}
