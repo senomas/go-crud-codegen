@@ -28,9 +28,9 @@ type {{.ID}}Ref struct {
 type {{.ID}} struct {
   {{- range .Fields }}
     {{- if and (eq .Type "many-to-one") (eq .Ref "User") }}
-	  {{.ID}}       *UserRef   `json:"{{.Name}}"`
+	  {{.ID}}       *UserRef   `json:"{{.Field}}"`
     {{- else}}
-	  {{.ID}}       {{.GoType}}   `json:"{{.Name}}"`
+	  {{.ID}}       {{.GoType}}   `json:"{{.Field}}"`
     {{- end}}
   {{- end}}
 }
@@ -39,8 +39,11 @@ type {{.ID}}Field string
 
 const (
 	{{range .Fields -}}
-	{{.Model.ID}}Field_{{.ID}}       {{.Model.ID}}Field = "{{.Name}}"
-	{{end}}
+  	xxx{{.Model.ID}}Field_{{.ID}}       {{.Model.ID}}Field = "{{.Name}}"
+    {{if eq .Type "many-to-onw" -}}
+      xxx {{.Ref}}Field = "xxx"
+    {{end -}}
+	{{end -}}
 )
 
 // swagger: model {{.ID}}Sorting

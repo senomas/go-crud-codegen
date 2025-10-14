@@ -103,8 +103,8 @@ define docker-build
 			  fi; \
 			fi; \
 			ARGS=$$(cat .build.env | grep -v '^#' | xargs -d '\n' -I{} echo --build-arg {}) ; \
-			docker build --build-arg DOCKER_REGISTRY=${DOCKER_REGISTRY} \
-				$$ARGS -t ${DOCKER_REGISTRY}/$3:$$app_ver $1 && \
+			docker build --build-arg DOCKER_REGISTRY=${DOCKER_REGISTRY} $$ARGS \
+				-t ${DOCKER_REGISTRY}/$3:$$app_ver $1 && \
 			docker push ${DOCKER_REGISTRY}/$3:$$app_ver \
 		) \
 	); \

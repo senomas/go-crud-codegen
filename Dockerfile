@@ -69,12 +69,12 @@ RUN go install github.com/swaggo/swag/cmd/swag@latest
 RUN goimports -v
 RUN swag -v
 
+COPY --from=builder /app/codegen /bin/codegen
+
 COPY base ./base
 COPY db2 ./db2
 COPY sqlite ./sqlite
 COPY postgresql ./postgresql
-
-COPY --from=builder /app/codegen /bin/codegen
 
 WORKDIR /work/app
 
