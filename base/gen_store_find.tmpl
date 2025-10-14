@@ -143,8 +143,8 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
 {{- end }}
 
 {{define "QueryFindCount" -}}
-  SELECT COUNT(
-  {{- $idx := 0}}{{range .PKeys -}}{{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}obj.{{.Field -}}
+  SELECT COUNT(DISTINCT
+  {{ $idx := 0}}{{range .PKeys -}}{{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}obj.{{.Field -}}
   {{- end}}) FROM {{template "SelectFrom" . }}
 {{- end -}}
 
