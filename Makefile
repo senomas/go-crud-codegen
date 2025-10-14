@@ -1,9 +1,17 @@
-# Useubash with error checking and pipeline failure detection
 SHELL := /bin/bash
 .SHELLFLAGS := -e -o pipefail -c
 .PHONY: FORCE
+.ONESHELL:
 
-RUN_TARGET ?= test
+$(shell test -f .local.env || touch .local.env)
+
+include .env
+-include .local.env
+
+include ./docker.mk
+
+build: FORCE
+	$(call docker-build,.,CRUD_GEN,crudgen)
 
 test: FORCE
 	rm -rf app.db

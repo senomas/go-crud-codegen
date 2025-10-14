@@ -14,34 +14,14 @@ import (
 )
 
 func main() {
-	args := os.Args
-	fmt.Printf("crudgen %+v\n", args)
-	dir := args[1]
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if _, err = os.Stat(path.Join(home, "go/bin/goimports")); os.IsNotExist(err) {
-		out, err := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest").CombinedOutput()
-		if err != nil {
-			log.Fatalf("go install goimports error: %v\n%s", err, out)
-		}
-	}
-	if _, err = os.Stat(path.Join(home, "go/bin/goimports")); os.IsNotExist(err) {
-		log.Fatalf("goimports not found at %s", path.Join(home, "go/bin/goimports"))
-	}
-	fmt.Printf("Working directory: %s\n", dir)
-	if os.Getenv("GIT_CHECK") != "F" {
-		gitStatus()
-	}
 	models := make(map[string]ModelDef)
-	dir = path.Join(dir, "./model")
-	err = LoadModels(models, dir, args[3])
+	dialect := os.Args[1]
+	module := os.Args[2]
+	err := LoadModels(models, "/work/app/model", module)
 	if err != nil {
 		panic(err)
 	}
-	dialect := args[2]
-	tmpl := Templates(".", dialect)
+	tmpl := Templates("/work/codegen", dialect)
 
 	tmpls := []*template.Template{
 		tmpl.Lookup("gen_sql.tmpl"),
@@ -73,7 +53,7 @@ func main() {
 					if m[1] == "" {
 						fmt.Printf("Generating file %s\n", m[2])
 						files = append(files, m[2])
-						f, err := os.Create(path.Join(args[1], m[2]))
+						f, err := os.Create(path.Join("/work/app", m[2]))
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -86,7 +66,7 @@ func main() {
 						files = append(files, m[2])
 						fmt.Printf("Generating file %s\n", m[2])
 						f := []*os.File{nil}
-						f[0], err = os.Create(path.Join(args[1], m[2]))
+						f[0], err = os.Create(path.Join("/work/app", m[2]))
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -100,7 +80,7 @@ func main() {
 
 								files = append(files, ms[2])
 								fmt.Printf("Generating file %s\n", ms[2])
-								f[0], err = os.Create(path.Join(args[1], ms[2]))
+								f[0], err = os.Create(path.Join("/work/app", ms[2]))
 								if err != nil {
 									log.Fatal(err)
 								}
@@ -115,23 +95,13 @@ func main() {
 			}
 		}
 	}
-	err = os.Chdir(args[1])
-	if err != nil {
-		log.Fatal(err)
-	}
 	eargs := []string{"-w"}
 	for _, f := range files {
 		if strings.HasSuffix(f, ".go") {
 			eargs = append(eargs, f)
 		}
 	}
-	if _, err = os.Stat(path.Join(home, "go/bin/goimports")); os.IsNotExist(err) {
-		out, err := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest").CombinedOutput()
-		if err != nil {
-			log.Fatalf("go install goimports error: %v\n%s", err, out)
-		}
-	}
-	out, err := exec.Command(path.Join(home, "go/bin/goimports"), eargs...).CombinedOutput()
+	out, err := exec.Command("goimports", eargs...).CombinedOutput()
 	if err != nil {
 		log.Fatalf("goimports error: %v\n%s", err, out)
 	}
