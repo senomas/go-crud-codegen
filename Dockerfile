@@ -54,9 +54,18 @@ RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz \
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # Optional: set Go environment defaults
-ENV GOPATH=/go
-ENV GOCACHE=/go/cache
+ENV GOPATH=/work/.go
+ENV GOCACHE=/work/.go/cache
 ENV PATH="$GOPATH/bin:${PATH}"
+
+COPY --from=builder /opt/ibm /opt/ibm
+
+ENV IBM_DB_HOME=/opt/ibm/clidriver
+ENV LD_LIBRARY_PATH=${IBM_DB_HOME}/lib
+ENV CGO_ENABLED=1
+ENV CGO_CFLAGS="-I${IBM_DB_HOME}/include"
+# add rpath so test binaries find libdb2.so at runtime
+ENV CGO_LDFLAGS="-L${IBM_DB_HOME}/lib -Wl,-rpath,${IBM_DB_HOME}/lib"
 
 # Verify tools (for debugging)
 RUN go version && python3 --version && git --version && docker --version && make --version
@@ -75,6 +84,18 @@ COPY base ./base
 COPY db2 ./db2
 COPY sqlite ./sqlite
 COPY postgresql ./postgresql
+
+COPY postgresql ./postgresql
+
+
+# Create a non-root user and group
+RUN groupadd -r appgroup && useradd -r -g appgroup -d /home/appuser -m appuser
+
+# Set ownership for the work directory
+RUN chown -R appuser:appgroup /work
+
+# Switch to the non-root user
+USER appuser
 
 WORKDIR /work/app
 
