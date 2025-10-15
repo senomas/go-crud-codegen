@@ -80,6 +80,11 @@ RUN swag -v
 
 COPY --from=builder /app/codegen /bin/codegen
 
+COPY app /work/app
+WORKDIR /work/app
+RUN go mod download
+
+WORKDIR /work/codegen
 COPY base ./base
 COPY db2 ./db2
 COPY sqlite ./sqlite
@@ -87,15 +92,10 @@ COPY postgresql ./postgresql
 
 COPY postgresql ./postgresql
 
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Create a non-root user and group
-RUN groupadd -r appgroup && useradd -r -g appgroup -d /home/appuser -m appuser
-
-# Set ownership for the work directory
-RUN chown -R appuser:appgroup /work
-
-# Switch to the non-root user
-USER appuser
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 WORKDIR /work/app
 

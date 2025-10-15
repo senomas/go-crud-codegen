@@ -51,6 +51,9 @@ func Templates(dir, dialect string) *template.Template {
 			return nf
 		},
 		"snakeCase": toSnakeCase,
+		"p": func(v any) string {
+			return fmt.Sprintf("%T", v)
+		},
 	}).ParseGlob(path.Join(dir, "base", "*.tmpl"))
 	if err != nil {
 		panic(err)

@@ -24,48 +24,6 @@
   {{- end}}
 {{- end}}
 
-{{- define "SelectField" -}}
-  {{- $idx := 0}}{{range .Fields -}}
-    {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- range .RefKeys }}
-        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Field}}
-      {{- end}}
-      {{- range .RefFields }}
-        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Field}}
-      {{- end}}
-    {{- else if eq .Type "many-to-many" }}
-    {{-  else }}
-      {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-      {{- "obj."}}{{.Field}}
-    {{- end}}
-  {{- end}}
-{{- end}}
-
-{{- define "SelectFrom" }}
-  {{- range .Fields -}}
-    {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- "("}}
-    {{- end}}
-  {{- end}}
-  {{- .Table}} obj
-  {{- $ridx := 0}}{{range .Fields -}}
-    {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- if gt $ridx 0}}
-        {{- "\n      LEFT JOIN "}}
-      {{- else }}
-        {{- " LEFT JOIN "}}
-      {{- end}}{{ $ridx = add $ridx 1 }}
-      {{- .Model.Table }} obj{{$fb.ID}}{{ " ON" -}}
-      {{- range .RefKeys }}
-        {{- " " }}obj.{{$fb.Field}} = obj{{$fb.ID}}.{{.Ref.Field}}
-      {{- end}}
-      {{- ")" }}
-    {{- end}}
-  {{- end}}
-{{- end}}
-
 {{- define "ScanFieldDef" }}
   {{- $idx:=0}}{{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
@@ -75,22 +33,6 @@
       {{- range .RefFields}}
         {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1}}var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType}}
       {{- end}}
-    {{- end}}
-  {{- end}}
-{{- end}}
-
-{{- define "ScanField" }}
-  {{- range .Fields -}}{{$f := . -}}
-    {{- if eq .Type "many-to-one" }}{{$fb := . }}
-      {{- range .RefKeys }}
-        &ref{{$fb.ID}}_{{.Ref.ID}},
-      {{- end}}
-      {{- range .RefFields }}
-        &ref{{$fb.ID}}_{{.Ref.ID}},
-      {{- end}}
-    {{- else if eq .Type "many-to-many" }}
-    {{-  else }}
-      &obj.{{.ID}},
     {{- end}}
   {{- end}}
 {{- end}}

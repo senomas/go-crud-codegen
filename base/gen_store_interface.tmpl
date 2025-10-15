@@ -16,9 +16,19 @@ import (
 )
 
 func (r *StoreImpl) {{.ID}}() {{.ID}}Store {
-	return &{{.ID}}StoreImpl{
+	robj := &{{.ID}}StoreImpl{
 		StoreImpl: r,
-	}
+    qrySelectCountObj: qrySelectCountObj_{{.ID}},
+    qrySelectObj: qrySelectObj_{{.ID}},
+    qryFromObj:  qryFromObj_{{.ID}},
+    scanObj:  scanObj_{{.ID}},
+  }
+  {{- range .Fields }}{{if eq .Type "many-to-many"}}
+  robj.getObj_{{.ID}} = func(ctx context.Context, obj {{.Model.ID}}) ([]{{.Ref}}, error) {
+    return getObj_{{.Model.ID}}_{{.ID}}(robj, ctx, obj)
+  }
+  {{- end}}{{end}}
+  return robj
 }
 
 type {{.ID}}Store interface {
@@ -38,8 +48,13 @@ type {{.ID}}Store interface {
 
 type {{.ID}}StoreImpl struct {
   *StoreImpl
-  qrySelectObj  func() string
-  scanObj       func(obj *{{.ID}}, rows *sql.Rows) error
+  qrySelectCountObj func() string
+  qrySelectObj      func() string
+  qryFromObj        func() string
+  scanObj           func(obj *{{.ID}}, rows *sql.Rows) error
+  {{- range .Fields }}{{if eq .Type "many-to-many"}}
+    getObj_{{.ID}} func(ctx context.Context, obj {{.Model.ID}}) ([]{{.Ref}}, error)
+  {{- end}}{{end}}
 }
 {{end -}}
 

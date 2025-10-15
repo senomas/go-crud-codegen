@@ -16,15 +16,9 @@ import (
 )
 
 func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (*{{.ID}}, error) {
-  qry := `
-    SELECT
-      `+r.qrySelectObj()+`
-    FROM
-      `+r.qryFromObj()+`
-    WHERE
-      {{ template "WhereFk" . }}`
+  qry := "SELECT\n  "+r.qrySelectObj()+"\nFROM\n  "+r.qryFromObj()+"\nWHERE\n"+
+    `{{ template "WhereFk" . }}`
   var obj {{.ID}};
-  {{template "GetScanFieldDef" .}}
   slog.Debug("store.{{.ID}}.Get", slog.String("qry", qry),
     {{- range .PKeys -}}
       {{.GoLogType}}("{{.Name}}", {{.Name}}),
@@ -41,9 +35,7 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
 	}
   defer rows.Close()
 	if rows.Next() {
-		err = rows.Scan(
-      {{- template "GetScanField" . }}
-    )
+    err = r.scanObj(&obj, rows)
     if err != nil {
       slog.Error("store.{{.ID}}.Get.Scan",slog.String("qry", qry),
         {{- range .PKeys -}}
@@ -52,41 +44,23 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
       )
       return nil, err
     }
-    {{- template "GetScanFieldPost" . }}
-    {{- template "GetScanFieldRef" .}}
-    {{- template "GetScanFieldManyRef" .}}
-    for rows.Next() {
-  		err = rows.Scan(
-        {{- template "GetScanField" . }}
-      )
-      if err != nil {
-        slog.Error("store.{{.ID}}.Get.Scan",slog.String("qry", qry),
-          {{- range .PKeys -}}
-            {{.GoLogType}}("{{.Name}}", {{.Name}}),
-          {{- end -}}
-        )
-        return nil, err
-      }
-      {{- template "GetScanFieldPost" . }}
-      {{- template "GetScanFieldManyRef" .}}
-    }
   } else {
     return nil, fmt.Errorf("NOT_FOUND")
   }
-  return &obj, nil
+  {{- range .Fields }}{{if eq .Type "many-to-many"}}
+  obj.{{.ID}}, err = r.getObj_{{.ID}}(ctx, obj)
+  if err != nil {
+    return nil, err
+  }
+  {{- end}}{{end}}
+  return &obj, err
 }
 
 {{range .Uniques -}}
 func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "ParamUnique" . }}) (*{{.Model.ID}}, error) {
-  qry := `
-    SELECT
-      `+r.qrySelectObj()+`
-    FROM
-      `+r.qryFromObj()+`
-    WHERE
-      {{ template "WhereUnique" . }}`
+  qry := "SELECT\n  "+r.qrySelectObj()+"\nFROM\n  "+r.qryFromObj()+"\nWHERE\n  "+
+    `{{ template "WhereUnique" . }}`
   var obj {{.Model.ID}};
-  {{template "GetScanFieldDef" .Model}}
   slog.Debug("store.{{.ID}}.Get", slog.String("qry", qry),
     {{- range .Fields -}}
       {{.GoLogType}}("{{.Name}}", {{.Name}}),
@@ -102,12 +76,8 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
     return nil, err
   }
   defer rows.Close()
-  {{- template "GetScanFieldRef" .Model}}
-  {{- template "GetScanFieldManyRef" .Model}}
-  for rows.Next() {
-		err = rows.Scan(
-      {{- template "GetScanField" .Model}}
-    )
+  if rows.Next() {
+    err = r.scanObj(&obj, rows)
     if err != nil {
       slog.Error("store.{{.ID}}.Get", slog.String("qry", qry),
         {{- range .Fields -}}
@@ -116,46 +86,47 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       )
       return nil, err
     }
-    {{- template "GetScanFieldPost" . }}
-    {{- template "GetScanFieldManyRef" .Model}}
   }
+  {{- range .Model.Fields }}{{if eq .Type "many-to-many"}}
+  obj.{{.ID}}, err = r.getObj_{{.ID}}(ctx, obj)
+  if err != nil {
+    return nil, err
+  }
+  {{- end}}{{end}}
   return &obj, nil
 }
 {{- end}}
 
-func (r *{{.ID}}StoreImpl) qrySelectObj() string {
+func qrySelectCountObj_{{.ID}}() string {
+ return `COUNT(DISTINCT
+  {{ $idx := 0}}{{range .PKeys -}}{{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}obj.{{.Field -}}
+  {{- end}})`
+}
+
+func qrySelectObj_{{.ID}}() string {
   return `{{- $idx := 0}}{{range .Fields -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range .RefKeys}}
         {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Name}}
+        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Field}}
       {{- end}}
       {{- range .RefFields}}
         {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Name}}
+        {{- "obj"}}{{$fb.ID}}.{{- .Ref.Field}}
       {{- end}}
     {{- else if eq .Type "many-to-many" }}{{$fb := . }}
-      {{- range .RefKeys -}}
-        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1 -}}
-        obj{{$fb.ID}}_ref.{{ .Ref.Name}}
-      {{- end}}
-      {{- range .RefFields -}}
-        {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1 -}}
-        obj{{$fb.ID}}_ref.{{ .Ref.Name}}
-      {{- end}}
     {{-  else }}
       {{- if gt $idx 0}},{{ "\n      " }}{{end}}{{$idx = add $idx 1}}
-      {{- "obj."}}{{.Name}}
+      {{- "obj."}}{{.Field}}
     {{- end}}
   {{- end}}`
 }
 
-func (r *{{.ID}}StoreImpl) qryFromObj() string {
+
+func qryFromObj_{{.ID}}() string {
   return `{{- $ridx:=0}}{{range .Fields -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- "("}}
-    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
-      {{- "(("}}
     {{- end}}
    {{- end}}
   {{- .Table}} obj
@@ -168,63 +139,28 @@ func (r *{{.ID}}StoreImpl) qryFromObj() string {
       {{- end}}{{ $ridx = add $ridx 1 }}
       {{- .Model.Table }} obj{{$fb.ID}}{{ " ON" -}}
       {{- range .RefKeys}}
-        {{- " " }}obj.{{$fb.Name}} = obj{{$fb.ID}}.{{.Ref.Name}}
+        {{- " " }}obj.{{$fb.Field}} = obj{{$fb.ID}}.{{.Ref.Field}}
       {{- end}}
       {{- ")" }}
-    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
-      {{- if gt $ridx 0}}
-        {{- "\n      LEFT JOIN "}}
-      {{- else }}
-        {{- " LEFT JOIN "}}
-      {{- end}}{{ $ridx = add $ridx 1 }}
-      {{- .MapTable}} obj{{.ID}}
-      {{- " ON " -}}
-      {{- $fidx := 0}}{{range .MapKeys}}
-        {{- if gt $fidx 0}} AND {{end}}{{$fidx = add $fidx 1}}
-        {{- "obj." }}{{ .Ref.Field }}{{ " = " -}} obj{{$fb.ID}}.{{ .Field }}
-      {{- end}}
-      {{- ")" }}
-      {{- "\n      LEFT JOIN "}}
-      {{- .RefModel.Table }} obj{{$fb.ID}}{{ "_ref ON "}}
-      {{- $fidx := 0}}{{range .RefKeys}}
-        {{- if gt $fidx 0}} AND {{end}}{{$fidx = add $fidx 1}}
-        {{- "obj" }}{{$fb.ID}}_ref.{{ .Ref.Field}} = obj{{$fb.ID}}.{{.Field}}
-      {{- end}}
-       {{- ")" }}
     {{- end}}
   {{- end}}`
 }
 
-{{- end}}
-
-{{- define "GetScanFieldDef" }}
-  {{- $idx:=0}}{{- range .Fields -}}{{$f := . -}}
+func scanObj_{{.ID}}(obj *{{.ID}}, rows *sql.Rows) error {
+  var err error
+  {{ $idx:=0}}{{- range .Fields }}{{$f := . }}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range .RefKeys}}
         {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
         var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType }}
       {{- end}}
       {{- range .RefFields}}
-        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
-        var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType }}
-      {{- end}}
-    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
-      {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
-      var ref{{.ID}} *{{.Ref}}
-      {{- range .RefKeys -}}
-        {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
-        var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType }}
-      {{- end}}
-      {{- range .RefFields -}}
         {{- if gt $idx 0}}{{"\n  "}}{{end}}{{$idx = add $idx 1 -}}
         var ref{{$fb.ID}}_{{.Ref.ID}} {{.Ref.GoSqlNullType }}
       {{- end}}
     {{- end}}
   {{- end}}
-{{- end}}
-
-{{- define "GetScanField" }}
-  {{- range .Fields -}}{{$f := . -}}
+  err = rows.Scan({{- range .Fields -}}{{$f := . -}}
     {{- if eq .Type "many-to-one" }}{{$fb := . }}
       {{- range .RefKeys}}
         &ref{{$fb.ID}}_{{.Ref.ID}},
@@ -232,17 +168,76 @@ func (r *{{.ID}}StoreImpl) qryFromObj() string {
       {{- range .RefFields}}
         &ref{{$fb.ID}}_{{.Ref.ID}},
       {{- end}}
-    {{- else if eq .Type "many-to-many" }}
-      {{- range .RefKeys}}
-        &ref{{$f.ID}}_{{.Ref.ID}},
-      {{- end}}
-      {{- range .RefFields }}
-        &ref{{$f.ID}}_{{.Ref.ID}},
-      {{- end}}
+    {{- else if eq .Type "many-to-many" }}{{$fb := . }}
     {{-  else }}
       &obj.{{.ID}},
     {{- end}}
+  {{- end}})
+  if err != nil {
+    return err
+  }
+  {{- template "GetScanFieldPost" . }}
+  {{- template "GetScanFieldRef" .}}
+  return err
+}
+
+{{ range .Fields }}{{if eq .Type "many-to-many"}}
+func getObj_{{.Model.ID}}_{{.ID}}(r *{{.Model.ID}}StoreImpl, ctx context.Context, obj {{.Model.ID}}) ([]{{.Ref}}, error) {
+  var err error
+  qry := `SELECT
+  {{- $idx:=0}}{{range .RefKeys -}}
+    {{- if gt $idx 0}}{{ "," }}{{end}}{{$idx = add $idx 1 -}}
+    {{- "\n      "}}{{- .Ref.Field -}}
+  {{- end -}}
+  {{- range .RefFields -}}
+    {{- if gt $idx 0}}{{ "," }}{{end}}{{$idx = add $idx 1 -}}
+    {{- "\n      "}}{{- .Ref.Field -}}
   {{- end}}
+    FROM
+      {{.RefModel.Table}} obj JOIN {{.MapTable}} objRef ON
+      {{- $idx:=0}}{{range .RefKeys -}}
+        {{- if gt $idx 0}}{{ " AND " }}{{end}}{{$idx = add $idx 1 -}}
+        {{- "\n        obj."}}{{.Ref.Field}} = objRef.{{.Field}}
+      {{- end}}
+    WHERE
+      {{- $idx:=0}}{{range .MapKeys -}}
+        {{- if gt $idx 0}}{{ " AND " }}{{end}}{{$idx = add $idx 1 -}}
+        {{- "\n        objRef."}}{{.Field}} = ?
+      {{- end -}}`
+  slog.Debug("store.{{.ID}}.Get", slog.String("qry", qry),
+    {{- range .MapKeys -}}
+      {{.Ref.GoLogType}}("{{.ID}}", obj.{{.ID}}),
+    {{- end -}}
+  )
+  rows, err := r.{{.Model.DB}}.QueryContext(ctx, qry
+    {{- range .MapKeys -}}
+      , obj.{{.ID}}
+    {{- end -}}
+  )
+  if err != nil {
+    return nil, err
+  }
+  defer rows.Close()
+	var list []Role
+  for rows.Next() {
+    var ref {{.Ref}}
+		err = rows.Scan(
+    {{- range .RefKeys }}
+			&ref.{{.ID}},
+    {{- end}}
+    {{- range .RefFields }}
+			&ref.{{.ID}},
+    {{- end}}
+ 		)
+    if err != nil {
+      return nil, err
+    }
+    list = append(list, ref)
+  }
+  return list, err
+}
+{{- end}}{{end}}
+
 {{- end}}
 
 {{- define "GetScanFieldPost" }}

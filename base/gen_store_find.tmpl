@@ -16,14 +16,15 @@ import (
 )
 
 func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, sorting []{{.ID}}Sorting) (*{{.ID}}, error) {
-  qfilter := []string{}
-  args := []any{}
-  {{template "FilterOp" (dict "m" . "Res" "nil, " )}}
+  qfilter, args, err := filter_{{.ID}}(filter)
+  if err != nil {
+    return nil, err
+  }
   qry := `
     SELECT
-      {{ template "SelectField" . }}
+      `+r.qrySelectObj()+`
     FROM
-      {{template "SelectFrom" . }}`
+      `+r.qryFromObj()
   if len(qfilter) > 0 {
     qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
   }
@@ -64,40 +65,34 @@ func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, 
   defer rows.Close()
   if rows.Next() {
     var obj {{.ID}};
-    {{template "ScanFieldDef" .}}
-    err = rows.Scan(
-      {{- template "ScanField" . }}
-    )
+    err = r.scanObj(&obj, rows)
     if err != nil {
 	    logErrorQueryArgs("store.{{.ID}}.FindOne.Scan", qry, args)
       return nil, err
     }
-    {{- template "GetScanFieldPost" . }}
-    {{- template "ScanFieldRef" .}}
     return &obj, nil
   }
   return nil, fmt.Errorf("not found")
 }
 
 func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sorting []{{.ID}}Sorting, limit int, offset int64) ([]{{.ID}}, int64, error) {
-  qfilter := []string{}
-  args := []any{}
-  {{template "FilterOp" (dict "m" . "Res" "nil, 0, " )}}
-  qry := `{{template "QueryFindCount" .}}`
+  qfilter, args, err := filter_{{.ID}}(filter)
+  qry := `SELECT `+r.qrySelectCountObj()+` FROM `+r.qryFromObj()
   if len(qfilter) > 0 {
     qry += " WHERE " + strings.Join(qfilter, " AND ")
   }
 	logQueryArgs("store.{{.ID}}.FindCount", qry, args)
   total := int64(0)
-  err := r.{{.DB}}.QueryRowContext(ctx, qry, args...).Scan(&total)
+  err = r.{{.DB}}.QueryRowContext(ctx, qry, args...).Scan(&total)
   if err != nil {
     slog.Error("Query count", "qry", qry, "Error", err)
     return nil, 0, err
   }
-  qry = `SELECT
-      {{ template "SelectField" . }}
+  qry = `
+    SELECT
+      `+r.qrySelectObj()+`
     FROM
-      {{template "SelectFrom" . }}`
+      `+r.qryFromObj()
   if len(qfilter) > 0 {
     qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
   }
@@ -140,176 +135,17 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
   }
   defer rows.Close()
   list := []{{.ID}}{};
+  var obj {{.ID}};
   for rows.Next() {
-    var obj {{.ID}};
-    {{template "ScanFieldDef" .}}
-    err = rows.Scan(
-      {{- template "ScanField" . }}
-    )
+    err = r.scanObj(&obj, rows)
     if err != nil {
 	    logErrorQueryArgs("store.{{.ID}}.Find.Scan", qry, args)
       return nil, total, err
     }
-    {{- template "GetScanFieldPost" . }}
-    {{- template "ScanFieldRef" .}}
     list = append(list, obj)
   }
   return list, total, nil
 }
+
 {{- end }}
 
-{{define "QueryFindCount" -}}
-  SELECT COUNT(DISTINCT
-  {{ $idx := 0}}{{range .PKeys -}}{{- if gt $idx 0}}, {{end}}{{$idx = add $idx 1}}obj.{{.Field -}}
-  {{- end}}) FROM {{template "SelectFrom" . }}
-{{- end -}}
-
-{{define "FilterOp_ILike" -}}
-	var val {{.GoType}}
-	err := json.Unmarshal(f.Value, &val)
-	if err != nil {
-    return {{.Args.Res}}err
-  }
-	args = append(args, val)
-  qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} ILIKE {{ template "QryParamArg" .}})
-{{- end -}}
-
-{{define "FilterOp" -}}
-  {{- $m := .m -}}
-  {{- $res := .Res -}}
-  for _, f := range filter {
-    switch f.Field {
-    {{- range .m.Fields -}}{{if eq .Type "text"}}
-    case {{$m.ID}}Field_{{.ID}}:
-      switch f.Op {
-      case FilterOp_EQ:
-				var val {{.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-        {{- if eq .Case "upper" }}
-          val = strings.ToUpper(val)
-        {{- else if eq .Case "lower" }}
-          val = strings.ToLower(val)
-        {{- end}}
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = {{ template "QryParamArg" .}})
-      case FilterOp_Like:
-				var val {{.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-        {{- if eq .Case "upper" }}
-          val = strings.ToUpper(val)
-        {{- else if eq .Case "lower" }}
-          val = strings.ToLower(val)
-        {{- end}}
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} LIKE {{ template "QryParamArg" .}})
-      case FilterOp_ILike:
-        {{- template "FilterOp_ILike" (fieldArgs . "Res" $res)}}
-      default:
-        return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
-      }
-    {{- else if eq .Type "integer" "timestamp" "date" "time"}}
-    case {{$m.ID}}Field_{{.ID}}:
-      switch f.Op {
-      case FilterOp_EQ:
-				var val {{.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} = {{ template "QryParamArg" .}})
-      case FilterOp_Greater:
-				var val {{.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} > {{ template "QryParamArg" .}})
-      case FilterOp_GreaterEq:
-				var val {{.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} >= {{ template "QryParamArg" .}})
-      case FilterOp_LessEq:
-				var val {{.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} <= {{ template "QryParamArg" .}})
-      case FilterOp_Less:
-				var val {{.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj.{{.Field}} < {{ template "QryParamArg" .}})
-      default:
-        return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
-      }
-    {{- else if eq .Type "many-to-one"}}{{$fb := .}}
-    {{- if eq (len .RefKeys) 1 }}
-    {{- range .RefKeys -}}{{if eq .Ref.Type "text"}}
-    case {{$m.ID}}Field_{{.ID}}:
-      switch f.Op {
-      case FilterOp_EQ:
-				var val {{.Ref.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-        {{- if eq .Ref.Case "upper" }}
-          val = strings.ToUpper(val)
-        {{- else if eq .Ref.Case "lower" }}
-          val = strings.ToLower(val)
-        {{- end}}
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj{{$fb.ID}}.{{.Field}} = {{ template "QryParamArg" .}})
-      case FilterOp_Like:
-				var val {{.Ref.GoType}}
-				err := json.Unmarshal(f.Value, &val)
-				if err != nil {
-          return {{$res}}err
-        }
-        {{- if eq .Ref.Case "upper" }}
-          val = strings.ToUpper(val)
-        {{- else if eq .Ref.Case "lower" }}
-          val = strings.ToLower(val)
-        {{- end}}
-				args = append(args, val)
-        qfilter = append(qfilter, fmt.Sprintf("obj{{$fb.ID}}.{{.Field}} LIKE {{ template "QryParamArg" .}})
-      case FilterOp_ILike:
-        {{- template "FilterOp_ILike" (fieldArgs .Ref "Res" $res)}}
-      default:
-        return {{$res}}fmt.Errorf("unsupported filter op %v for field %v", f.Op, f.Field)
-      }
-    {{- end}}{{end}}{{end}}{{end}}{{end}}
-    default:
-      return {{$res}}fmt.Errorf("unsupported filter field %v", f.Field)
-    }
-  }
-{{- end -}}
-
-{{- define "PreFindObj"}}
-  {{- range .Fields -}}
-    {{- if eq .Type "text" }}
-      {{- if eq .Case "upper" }}
-        {{- "\n    "}}obj.{{.ID}} = strings.ToUpper(obj.{{.ID}}) 
-      {{- else if eq .Case "lower" }}
-        {{- "\n    "}}obj.{{.ID}} = strings.ToLower(obj.{{.ID}})
-      {{- end}}
-    {{- end}}
-  {{- end}}
- {{- end -}}
