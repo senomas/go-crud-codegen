@@ -36,6 +36,12 @@ func LoadModels(models map[string]ModelDef, dir, module string) error {
 			for n, mo := range m {
 				mo.Path = path.Dir(name)
 				mo.Module = module
+				mo.model = func(id string) (*ModelDef, error) {
+					if m, ok := models[id]; ok {
+						return &m, nil
+					}
+					return nil, fmt.Errorf("model %s not found", id)
+				}
 				mo.ID = n
 				if n == "" {
 					mo.Package = "model"

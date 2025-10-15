@@ -16,9 +16,19 @@ import (
 )
 
 func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, sorting []{{.ID}}Sorting) (*{{.ID}}, error) {
-  qfilter, args, err := filter_{{.ID}}(filter)
-  if err != nil {
-    return nil, err
+  var err error
+  qfilter := []string{}
+  args := []any{}
+  for _, f := range filter {
+    ff, ok := r.findFilters[f.Field]
+    if !ok {
+      return nil, fmt.Errorf("field %v is not filterable", f.Field)
+    }
+    qfilter, args, err = ff(qfilter, args, f.Op, f.Value)
+    if err != nil {
+      slog.Error("Filter", "field", f.Field, "op", f.Op, "value", string(f.Value), "Error", err)
+      return nil, err
+    }
   }
   qry := `
     SELECT
@@ -26,30 +36,23 @@ func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, 
     FROM
       `+r.qryFromObj()
   if len(qfilter) > 0 {
-    qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+    qry += "\n    WHERE " + strings.Join(qfilter, " AND\n      ")
   }
   if len(sorting) > 0 {
     sorts := []string{}
     for _, f := range sorting {
-      switch f.Field {
-      {{range .Fields }}{{if eq .Type "text" "int" "autoincrement" "timestamp"}}
-      case {{.Model.ID}}Field_{{.ID}}:
-        if f.Dir == SortDir_ASC {
-          sorts = append(sorts, "obj.{{.Field}} ASC")
-        } else {
-          sorts = append(sorts, "obj.{{.Field}} DESC")
-        }
-      {{- else if eq .Type "many-to-one"}}{{$fb := .}}
-        {{- if eq (len .RefKeys) 1 }}
-        {{- range .RefKeys}}{{if eq .Ref.Type "text" "int" "autoincrement" "timestamp" }}
-          case {{$fb.Model.ID}}Field_{{$fb.ID}}:
-            if f.Dir == SortDir_ASC {
-              sorts = append(sorts, "obj{{$fb.ID}}.{{.Ref.Field}} ASC")
-            } else {
-              sorts = append(sorts, "obj{{$fb.ID}}.{{.Ref.Field}} DESC")
-            }
-        {{- end}}{{end}}{{end}}
-      {{- end}}{{end}}}
+      ff, ok := r.fields[f.Field]
+      if !ok {
+        return nil, fmt.Errorf("field %v is unsortable", f.Field)
+      }
+      switch f.Dir {
+      case SortDir_ASC:
+        sorts = append(sorts, fmt.Sprintf("obj.%s ASC", ff))
+      case SortDir_DESC:
+        sorts = append(sorts, fmt.Sprintf("obj.%s DESC", ff))
+      default:
+        return nil, fmt.Errorf("invalid sort direction %v", f.Dir)
+      }
     }
     if len(sorts) > 0 {
       qry += "\n  ORDER BY " + strings.Join(sorts, ", ")
@@ -76,7 +79,20 @@ func (r *{{.ID}}StoreImpl) FindOne(ctx context.Context, filter []{{.ID}}Filter, 
 }
 
 func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sorting []{{.ID}}Sorting, limit int, offset int64) ([]{{.ID}}, int64, error) {
-  qfilter, args, err := filter_{{.ID}}(filter)
+  var err error
+  qfilter := []string{}
+  args := []any{}
+  for _, f := range filter {
+    ff, ok := r.findFilters[f.Field]
+    if !ok {
+      return nil, 0, fmt.Errorf("field %v is not filterable", f.Field)
+    }
+    qfilter, args, err = ff(qfilter, args, f.Op, f.Value)
+    if err != nil {
+      slog.Error("Filter", "field", f.Field, "op", f.Op, "value", string(f.Value), "Error", err)
+      return nil, 0, err
+    }
+  }
   qry := `SELECT `+r.qrySelectCountObj()+` FROM `+r.qryFromObj()
   if len(qfilter) > 0 {
     qry += " WHERE " + strings.Join(qfilter, " AND ")
@@ -94,32 +110,22 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
     FROM
       `+r.qryFromObj()
   if len(qfilter) > 0 {
-    qry += "\n  WHERE " + strings.Join(qfilter, " AND\n    ")
+    qry += "\n    WHERE " + strings.Join(qfilter, " AND\n      ")
   }
   if len(sorting) > 0 {
     sorts := []string{}
     for _, f := range sorting {
-      switch f.Field {
-      {{range .Fields }}{{if eq .Type "text" "int" "autoincrement" }}
-      case {{.Model.ID}}Field_{{.ID}}:
-        if f.Dir == SortDir_ASC {
-          sorts = append(sorts, "obj.{{.Field}} ASC")
-        } else {
-          sorts = append(sorts, "obj.{{.Field}} DESC")
-        }
-      {{- else if eq .Type "many-to-one"}}{{$fb := .}}
-        {{- if eq (len .RefKeys) 1 }}
-        {{- range .RefKeys}}{{if eq .Ref.Type "text" "int" "autoincrement" "timestamp" }}
-          case {{$fb.Model.ID}}Field_{{$fb.ID}}:
-            if f.Dir == SortDir_ASC {
-              sorts = append(sorts, "obj{{$fb.ID}}.{{.Ref.Field}} ASC")
-            } else {
-              sorts = append(sorts, "obj{{$fb.ID}}.{{.Ref.Field}} DESC")
-            }
-        {{- end}}{{end}}{{end}}
-      {{- end}}{{end}}
+      ff, ok := r.fields[f.Field]
+      if !ok {
+        return nil, 0, fmt.Errorf("field %v is unsortable", f.Field)
+      }
+      switch f.Dir {
+      case SortDir_ASC:
+        sorts = append(sorts, fmt.Sprintf("obj.%s ASC", ff))
+      case SortDir_DESC:
+        sorts = append(sorts, fmt.Sprintf("obj.%s DESC", ff))
       default:
-        return nil, 0, fmt.Errorf("field %v is unsorted", f)
+        return nil, 0, fmt.Errorf("invalid sort direction %v", f.Dir)
       }
     }
     if len(sorts) > 0 {

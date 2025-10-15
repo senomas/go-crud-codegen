@@ -15,22 +15,6 @@ import (
 	"{{.Module}}/util/jsql"
 )
 
-func (r *StoreImpl) {{.ID}}() {{.ID}}Store {
-	robj := &{{.ID}}StoreImpl{
-		StoreImpl: r,
-    qrySelectCountObj: qrySelectCountObj_{{.ID}},
-    qrySelectObj: qrySelectObj_{{.ID}},
-    qryFromObj:  qryFromObj_{{.ID}},
-    scanObj:  scanObj_{{.ID}},
-  }
-  {{- range .Fields }}{{if eq .Type "many-to-many"}}
-  robj.getObj_{{.ID}} = func(ctx context.Context, obj {{.Model.ID}}) ([]{{.Ref}}, error) {
-    return getObj_{{.Model.ID}}_{{.ID}}(robj, ctx, obj)
-  }
-  {{- end}}{{end}}
-  return robj
-}
-
 type {{.ID}}Store interface {
   Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, error)
   Get(ctx context.Context, {{template "ParamFk" . }}) (*{{.ID}}, error)
@@ -48,6 +32,8 @@ type {{.ID}}Store interface {
 
 type {{.ID}}StoreImpl struct {
   *StoreImpl
+  fields            map[{{.ID}}Field]string
+  findFilters       map[{{.ID}}Field]FilterFieldFn
   qrySelectCountObj func() string
   qrySelectObj      func() string
   qryFromObj        func() string
@@ -55,6 +41,70 @@ type {{.ID}}StoreImpl struct {
   {{- range .Fields }}{{if eq .Type "many-to-many"}}
     getObj_{{.ID}} func(ctx context.Context, obj {{.Model.ID}}) ([]{{.Ref}}, error)
   {{- end}}{{end}}
+}
+
+func (r *StoreImpl) {{.ID}}() {{.ID}}Store {
+	robj := &{{.ID}}StoreImpl{
+		StoreImpl: r,
+    qrySelectCountObj: qrySelectCountObj_{{.ID}},
+    qrySelectObj: qrySelectObj_{{.ID}},
+    qryFromObj:  qryFromObj_{{.ID}},
+    scanObj:  scanObj_{{.ID}},
+  }
+  {{- range .Fields }}{{if eq .Type "many-to-many"}}
+  robj.getObj_{{.ID}} = func(ctx context.Context, obj {{.Model.ID}}) ([]{{.Ref}}, error) {
+    return getObj_{{.Model.ID}}_{{.ID}}(robj, ctx, obj)
+  }
+  {{- end}}{{end}}
+  robj.fields = make(map[{{.ID}}Field]string)
+  {{- range .Fields }}
+    robj.fields[{{.Model.ID}}Field_{{.ID}}] = "{{.Field}}"
+  {{- end}}
+  robj.findFilters = make(map[{{.ID}}Field]FilterFieldFn)
+  {{- range .Fields -}}
+    {{- if eq .Type "text"}}
+      robj.findFilters[{{.Model.ID}}Field_{{.ID}}] = func (qfilter []string, args []any, op FilterOp, value json.RawMessage) ([]string, []any, error) {
+        {{- if eq .Case "upper" }}
+          return filterTextUpper(qfilter, args, "obj.{{.Field}}", op, value)
+        {{- else if eq .Case "lower" }}
+          return filterTextLower(qfilter, args, "obj.{{.Field}}", op, value)
+        {{- else}}
+          return filterText(qfilter, args, "obj.{{.Field}}", op, value)
+        {{- end}}
+      }
+    {{- else if eq .Type "integer" "autoincrement" }}
+      robj.findFilters[{{.Model.ID}}Field_{{.ID}}] = func (qfilter []string, args []any, op FilterOp, value json.RawMessage) ([]string, []any, error) {
+        return filterInt(qfilter, args, "obj.{{.Field}}", op, value)
+      }
+    {{- else if eq .Type "timestamp" "date" "time"}}
+      robj.findFilters[{{.Model.ID}}Field_{{.ID}}] = func (qfilter []string, args []any, op FilterOp, value json.RawMessage) ([]string, []any, error) {
+        return filterTime(qfilter, args, "obj.{{.Field}}", op, value)
+      }
+    {{- else if eq .Type "many-to-one"}}{{$f:=.}}
+      {{- if eq (len .RefKeys) 1}}{{ range .RefKeys }}
+        {{- if eq .Ref.Type "text"}}
+          robj.findFilters[{{$f.Model.ID}}Field_{{$f.ID}}] = func (qfilter []string, args []any, op FilterOp, value json.RawMessage) ([]string, []any, error) {
+            {{- if eq .Ref.Case "upper" }}
+              return filterTextUpper(qfilter, args, "obj.{{.Field}}", op, value)
+            {{- else if eq .Ref.Case "lower" }}
+              return filterTextLower(qfilter, args, "obj.{{.Field}}", op, value)
+            {{- else}}
+              return filterText(qfilter, args, "obj.{{.Field}}", op, value)
+            {{- end}}
+          }
+        {{- else if eq .Ref.Type "integer" "autoincrement" }}
+          robj.findFilters[{{$f.Model.ID}}Field_{{$f.ID}}] = func (qfilter []string, args []any, op FilterOp, value json.RawMessage) ([]string, []any, error) {
+            return filterInt(qfilter, args, "obj.{{.Field}}", op, value)
+          }
+        {{- else if eq .Ref.Type "timestamp" "date" "time"}}
+          robj.findFilters[{{$f.Model.ID}}Field_{{$f.ID}}] = func (qfilter []string, args []any, op FilterOp, value json.RawMessage) ([]string, []any, error) {
+            return filterTime(qfilter, args, "obj.{{.Field}}", op, value)
+          }
+        {{- end}}
+      {{- end}}{{end}}
+    {{- end}}
+  {{- end}}
+  return robj
 }
 {{end -}}
 
