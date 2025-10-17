@@ -137,7 +137,7 @@ func qryFromObj_{{.ID}}() string {
       {{- else }}
         {{- " LEFT JOIN "}}
       {{- end}}{{ $ridx = add $ridx 1 }}
-      {{- .Model.Table }} obj{{$fb.ID}}{{ " ON" -}}
+      {{- .RefModel.Table }} obj{{$fb.ID}}{{ " ON" -}}
       {{- range .RefKeys}}
         {{- " " }}obj.{{$fb.Field}} = obj{{$fb.ID}}.{{.Ref.Field}}
       {{- end}}
