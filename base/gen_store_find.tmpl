@@ -141,8 +141,8 @@ func (r *{{.ID}}StoreImpl) Find(ctx context.Context, filter []{{.ID}}Filter, sor
   }
   defer rows.Close()
   list := []{{.ID}}{};
-  var obj {{.ID}};
   for rows.Next() {
+    var obj {{.ID}};
     err = r.scanObj(&obj, rows)
     if err != nil {
 	    logErrorQueryArgs("store.{{.ID}}.Find.Scan", qry, args)
