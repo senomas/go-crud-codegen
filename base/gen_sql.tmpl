@@ -68,6 +68,14 @@ CREATE TABLE {{$Model := .}}{{ $idx := 0}}{{.Table}} (
   {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}{{.Field}}
   {{- end}})
 );
+
+{{- range  .Uniques}}
+ALTER TABLE {{$Model.Table}} ADD CONSTRAINT {{.ID}} UNIQUE (
+  {{- $fidx := 0}}{{- range .Fields }}
+    {{- if gt $fidx 0}}, {{end}}{{$fidx = add $fidx 1}}{{ .Field}}
+  {{- end}}
+);
+{{- end -}}
 {{- end -}}
 
 {{ define "DropTable" -}}

@@ -11,41 +11,6 @@ import (
 	"strings"
 )
 
-func gitStatus() {
-	out, err := exec.Command("git", "--no-pager", "status", "--porcelain", "--", "model/*.go", "migrations/*.sql").CombinedOutput()
-	if err != nil {
-		log.Fatalf("Checking git status: %v", err)
-	}
-	scanner := bufio.NewScanner(bytes.NewBuffer(out))
-	clean := true
-	for scanner.Scan() {
-		ln := scanner.Text()
-		if strings.HasSuffix(ln, "_test.go") {
-			// skip
-		} else {
-			fn := strings.SplitN(strings.Trim(ln, " "), " ", 2)[1]
-			data, err := os.ReadFile(fn)
-			if err != nil {
-				log.Fatalf("Reading file [%s]: %v", fn, err)
-			}
-			scanner := bufio.NewScanner(bytes.NewBuffer(data))
-			if scanner.Scan() {
-				ln := scanner.Text()
-				if strings.Contains(ln, "DO NOT EDIT") {
-					clean = false
-					fmt.Printf("MODIFIED: %s\n", fn)
-				}
-			} else {
-				clean = false
-				fmt.Printf("MODIFIED: %s\n", fn)
-			}
-		}
-	}
-	if !clean {
-		log.Fatalf("Repository not clean, aborted")
-	}
-}
-
 func diff(file string) {
 	if _, err := os.Stat(file); err == nil {
 		// continue
@@ -54,9 +19,10 @@ func diff(file string) {
 	} else {
 		log.Fatalf("Error checking %s: %v\n", file, err)
 	}
+	fmt.Printf("git --no-pager diff -- %s\n", file)
 	out, err := exec.Command("git", "--no-pager", "diff", "--", file).CombinedOutput()
 	if err != nil {
-		log.Fatalf("Checking git diff for %s: %v", file, err)
+		log.Fatalf("Checking git diff for %s: %v\n\n%s", file, err, string(out))
 		os.Exit(1)
 	}
 	scanner := bufio.NewScanner(bytes.NewBuffer(out))
