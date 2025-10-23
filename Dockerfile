@@ -17,6 +17,9 @@ ENV CGO_CFLAGS="-I${IBM_DB_HOME}/include"
 # add rpath so test binaries find libdb2.so at runtime
 ENV CGO_LDFLAGS="-L${IBM_DB_HOME}/lib -Wl,-rpath,${IBM_DB_HOME}/lib"
 
+ENV GOPATH=/work/.go
+ENV GOCACHE=/work/.go/cache
+
 WORKDIR /app
 
 COPY go.mod .
