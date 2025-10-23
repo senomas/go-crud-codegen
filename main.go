@@ -119,7 +119,7 @@ func writeOut(files []string, bb *bytes.Buffer) []string {
 				}
 			}
 		} else {
-			log.Fatalf("First line of generated content does not specify file name")
+			log.Printf("First line of generated content does not specify file name\n")
 		}
 	}
 	return files

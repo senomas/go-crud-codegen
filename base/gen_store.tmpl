@@ -1,3 +1,4 @@
+{{- if not (eq .Table "") -}}
 {{template "StoreInterface" .}}
 
 {{template "StoreImplCreate" .}}
@@ -9,4 +10,4 @@
 {{template "StoreImplUpdate" .}}
 
 {{template "StoreImplDelete" .}}
-
+{{- end }}
