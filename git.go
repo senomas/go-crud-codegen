@@ -19,7 +19,6 @@ func diff(file string) {
 	} else {
 		log.Fatalf("Error checking %s: %v\n", file, err)
 	}
-	fmt.Printf("git --no-pager diff -- %s\n", file)
 	out, err := exec.Command("git", "--no-pager", "diff", "--", file).CombinedOutput()
 	if err != nil {
 		log.Fatalf("Checking git diff for %s: %v\n\n%s", file, err, string(out))

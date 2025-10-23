@@ -36,8 +36,8 @@ type {{.ID}}UpdateParam struct {
   Fields []model.{{.ID}}Field `json:"fields"`
 }
 
-func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store, authenticate Authenticate) {
-  mux.HandleFunc("PUT /{{snakeCase .ID}}", func(w http.ResponseWriter, r *http.Request) {
+func {{.ID}}HandlerRegister(mux *http.ServeMux, base string, store model.Store, authenticate Authenticate) {
+  mux.HandleFunc("PUT "+base+"/{{snakeCase .ID}}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "create") {
 		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
       return
@@ -47,7 +47,7 @@ func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store, authenticate 
       writeError(w, http.StatusInternalServerError, err)
     }
   })
-  mux.HandleFunc("GET /{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
+  mux.HandleFunc("GET "+base+"/{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "read") {
 		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
       return
@@ -57,7 +57,7 @@ func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store, authenticate 
       writeError(w, http.StatusInternalServerError, err)
     }
   })
-  mux.HandleFunc("POST /{{snakeCase .ID}}", func(w http.ResponseWriter, r *http.Request) {
+  mux.HandleFunc("POST "+base+"/{{snakeCase .ID}}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "read") {
 		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
       return
@@ -67,7 +67,7 @@ func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store, authenticate 
       writeError(w, http.StatusInternalServerError, err)
     }
   })
-  mux.HandleFunc("PATCH /{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
+  mux.HandleFunc("PATCH "+base+"/{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "update") {
 		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
       return
@@ -77,7 +77,7 @@ func {{.ID}}HandlerRegister(mux *http.ServeMux, store model.Store, authenticate 
       writeError(w, http.StatusInternalServerError, err)
     }
   })
-  mux.HandleFunc("DELETE /{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
+  mux.HandleFunc("DELETE "+base+"/{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "delete") {
 		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
       return
