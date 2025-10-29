@@ -45,7 +45,7 @@ func (r *{{.ID}}StoreImpl) Get(ctx context.Context, {{template "ParamFk" . }}) (
       return nil, err
     }
   } else {
-    return nil, nil
+    return nil, fmt.Errorf("NOT_FOUND")
   }
   {{- range .Fields }}{{if eq .Type "many-to-many"}}
   obj.{{.ID}}, err = r.getObj_{{.ID}}(ctx, obj)
@@ -87,7 +87,7 @@ func (r *{{.Model.ID}}StoreImpl) GetBy{{.ID}}(ctx context.Context, {{template "P
       return nil, err
     }
   } else {
-    return nil, nil
+    return nil, fmt.Errorf("NOT_FOUND")
   }
   {{- range .Model.Fields }}{{if eq .Type "many-to-many"}}
   obj.{{.ID}}, err = r.getObj_{{.ID}}(ctx, obj)
