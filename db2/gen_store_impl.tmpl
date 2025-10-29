@@ -40,11 +40,11 @@
       {{- end}}
       "err", err,
     )
-    return nil, err
+		return nil, insertError(r.db, err)
   }
 	ra, err := res.RowsAffected()
 	if err != nil {
-		return nil, err
+    return nil, err
 	}
 	if ra != 1 {
 		return nil, fmt.Errorf("ERR_INSERT_FAILED")

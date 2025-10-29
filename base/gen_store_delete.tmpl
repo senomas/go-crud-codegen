@@ -39,7 +39,7 @@ func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}
         "{{.Field}}", {{.Name}},
       {{- end }}
     )
-    return err
+    return deleteError(err)
   }
   ra, err := res.RowsAffected()
   if err != nil {

@@ -136,7 +136,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
             slog.Any("{{.Ref.Model.ID}}.{{- .Ref.ID}}", objRef.{{- .Ref.ID}}),
           {{- end}}
         )
-        return nil, err
+        return nil, insertError(r.db, err)
       }
     	ra, err := res.RowsAffected()
     	if err != nil {
@@ -149,7 +149,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
             slog.Any("{{.Ref.Model.ID}}.{{- .Ref.ID}}", objRef.{{- .Ref.ID}}),
           {{- end}}
         )
-     		return nil, err
+        return nil, err
     	}
     	if ra != 1 {
     		return nil, fmt.Errorf("ERR_INSERT_FAILED")
@@ -203,7 +203,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
         {{- end}}
       {{- end}}
     )
-    return nil, err
+    return nil, insertError(r.db, err)
   }
 	ra, err := res.RowsAffected()
 	if err != nil {
