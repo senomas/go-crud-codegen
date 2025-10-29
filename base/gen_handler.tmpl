@@ -39,52 +39,57 @@ type {{.ID}}UpdateParam struct {
 func {{.ID}}HandlerRegister(mux *http.ServeMux, base string, store model.Store, authenticate Authenticate) {
   mux.HandleFunc("PUT "+base+"/{{snakeCase .ID}}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "create") {
-		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      writeForbiden(w)
       return
     }
     if err := {{.ID}}Create(r.Context(), store, w, r); err != nil {
 			slog.Warn("error in {{.ID}}Create", "err", err)
-      writeError(w, http.StatusInternalServerError, err)
+      writeInternalError(w, err)
+      return
     }
   })
   mux.HandleFunc("GET "+base+"/{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "read") {
-		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      writeForbiden(w)
       return
     }
     if err := {{.ID}}Get(r.Context(), store, w, r); err != nil {
 			slog.Warn("error in {{.ID}}Get", "err", err)
-      writeError(w, http.StatusInternalServerError, err)
+      writeInternalError(w, err)
+      return
     }
   })
   mux.HandleFunc("POST "+base+"/{{snakeCase .ID}}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "read") {
-		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      writeForbiden(w)
       return
     }
     if err := {{.ID}}Find(r.Context(), store, w, r); err != nil {
 			slog.Warn("error in {{.ID}}Find", "err", err)
-      writeError(w, http.StatusInternalServerError, err)
+      writeInternalError(w, err)
+      return
     }
   })
   mux.HandleFunc("PATCH "+base+"/{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "update") {
-		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      writeForbiden(w)
       return
     }
     if err := {{.ID}}Update(r.Context(), store, w, r); err != nil {
 			slog.Warn("error in {{.ID}}Update", "err", err)
-      writeError(w, http.StatusInternalServerError, err)
+      writeInternalError(w, err)
+      return
     }
   })
   mux.HandleFunc("DELETE "+base+"/{{snakeCase .ID}}{{ template "PathFk" . }}", func(w http.ResponseWriter, r *http.Request) {
     if !authenticate(r, "{{.Table}}", "delete") {
-		  writeError(w, http.StatusForbidden, fmt.Errorf("forbidden"))
+      writeForbiden(w)
       return
     }
     if err := {{.ID}}Delete(r.Context(), store, w, r); err != nil {
 			slog.Warn("error in {{.ID}}Delete", "err", err)
-      writeError(w, http.StatusInternalServerError, err)
+      writeInternalError(w, err)
+      return
     }
   })
 }
