@@ -127,7 +127,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
           {{- ", objRef." }}{{- .Ref.ID}}
         {{- end}})
       if err != nil {
-        slog.Error("store.{{.Model.ID}}.{{.ID}}.Create",
+        return nil, insertError(r.db, "store.{{.Model.ID}}.{{.ID}}.Create", err,
           slog.String("qry", qry),
           {{- range .MapKeys}}
             slog.Any("{{.Ref.Model.ID}}.{{- .Ref.ID}}", obj.{{- .Ref.ID}}),
@@ -136,7 +136,6 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
             slog.Any("{{.Ref.Model.ID}}.{{- .Ref.ID}}", objRef.{{- .Ref.ID}}),
           {{- end}}
         )
-        return nil, insertError(r.db, err)
       }
     	ra, err := res.RowsAffected()
     	if err != nil {
@@ -148,6 +147,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
           {{- range .RefKeys}}
             slog.Any("{{.Ref.Model.ID}}.{{- .Ref.ID}}", objRef.{{- .Ref.ID}}),
           {{- end}}
+          slog.Any("Error", err),
         )
         return nil, err
     	}
@@ -194,7 +194,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
         {{- else if eq .Type "many-to-many" }}
         {{- else if eq .Type "many-to-one" }}{{$fb := . }}
           {{- range .RefKeys}}
-            {{- "\n    "}}{{.Ref.GoLogNullType}}("{{$f.ID}}.{{.Ref.keld}}", obj{{$f.ID}}_{{.Ref.ID}}),
+            {{- "\n    "}}{{.Ref.GoLogNullType}}("{{$f.ID}}.{{.Ref.Field}}", obj{{$f.ID}}_{{.Ref.ID}}),
           {{- end}}
         {{- else if eq .Type "password" }}
           {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
@@ -202,6 +202,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
           {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
         {{- end}}
       {{- end}}
+      slog.Any("Error", err),
     )
     return nil, insertError(r.db, err)
   }
@@ -222,6 +223,7 @@ func (r *{{.ID}}StoreImpl) Create(ctx context.Context, obj {{.ID}}) (*{{.ID}}, e
           {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
         {{- end}}
       {{- end}}
+      slog.Any("Error", err),
     )
 		return nil, err
 	}

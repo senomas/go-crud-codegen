@@ -11,10 +11,8 @@ include .env
 include ./docker.mk
 
 build: FORCE
-	@$(call docker-build,.env .local.env entrypoint.sh base postgresql *.go,CRUD_GEN,crudgen,base/Dockerfile,.)
-
-xx:
-	$(call docker-build,build-util,BUILD_UTIL,codegen-build-util)
+	@$(call docker-build,build-util,BUILD_UTIL,codegen-build-util)
+	@$(call docker-build,.env .local.env Dockerfile entrypoint.sh base postgresql db2 *.go,CRUD_GEN,crudgen,Dockerfile,.)
 
 test: FORCE
 	rm -rf app.db

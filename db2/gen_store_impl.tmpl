@@ -6,6 +6,10 @@
   ?")
 {{- end -}}
 
+{{ define "FilterStr" -}}
+  fmt.Sprintf("{{ .fmt}}?", field)
+{{- end }}
+
 {{define "CreateExec" -}}
    res, err := tx.ExecContext(ctx, qry,
    {{- range .Fields -}}{{$f := . -}}
@@ -23,7 +27,7 @@
     {{- end}}
   )
   if err != nil {
-    slog.Error("store.{{.ID}}.Create",
+    return nil, insertError(r.db, "store.{{.ID}}.Create", err,
       slog.String("qry", qry),
       {{- range .Fields -}}{{$f := . -}}
         {{- if eq .Type "autoincrement" -}}
@@ -38,9 +42,7 @@
           {{- "\n    "}}{{.GoLogType}}("{{.Field}}", obj.{{.ID}}),
         {{- end}}
       {{- end}}
-      "err", err,
     )
-		return nil, insertError(r.db, err)
   }
 	ra, err := res.RowsAffected()
 	if err != nil {

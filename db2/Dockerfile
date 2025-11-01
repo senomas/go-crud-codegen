@@ -1,21 +1,7 @@
 ARG DOCKER_REGISTRY=docker.io
 ARG BUILD_UTIL_VER=ver
+ARG PYTHON_VERSION=3.12
 FROM ${DOCKER_REGISTRY}/codegen-build-util:${BUILD_UTIL_VER} AS builder
-
-RUN --mount=type=cache,target=/var/cache/apt \
-  --mount=type=cache,target=/var/lib/apt/lists \
-  set -eux; \
-  apt-get update && apt-get install -y --no-install-recommends \
-  build-essential curl ca-certificates \
-  libxml2 libcrypt1 libkrb5-3 libgssapi-krb5-2 \
-  libldap-2.5-0 libaio1 libnuma1 zlib1g
-
-ENV IBM_DB_HOME=/opt/ibm/clidriver
-ENV LD_LIBRARY_PATH=${IBM_DB_HOME}/lib
-ENV CGO_ENABLED=1
-ENV CGO_CFLAGS="-I${IBM_DB_HOME}/include"
-# add rpath so test binaries find libdb2.so at runtime
-ENV CGO_LDFLAGS="-L${IBM_DB_HOME}/lib -Wl,-rpath,${IBM_DB_HOME}/lib"
 
 ENV GOPATH=/work/.go
 ENV GOCACHE=/work/.go/cache
@@ -30,9 +16,7 @@ COPY *.go .
 
 RUN go build -o codegen .
 
-RUN go build -o codegen .
-
-FROM python:3.12-slim
+FROM ${DOCKER_REGISTRY}/python:${PYTHON_VERSION}-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends git make ca-certificates curl \
@@ -61,7 +45,22 @@ ENV GOPATH=/work/.go
 ENV GOCACHE=/work/.go/cache
 ENV PATH="$GOPATH/bin:${PATH}"
 
-COPY --from=builder /opt/ibm /opt/ibm
+# Verify tools (for debugging)
+RUN go version && python3 --version && git --version && docker --version && make --version
+
+WORKDIR /work/codegen
+
+ARG GOIMPORTS_VER=v1
+
+RUN go install golang.org/x/tools/cmd/goimports@${GOIMPORTS_VER}
+
+ARG SWAGGO_VER=v1
+RUN go install github.com/swaggo/swag/cmd/swag@${SWAGGO_VER}
+
+RUN goimports -v
+RUN swag -v
+
+COPY --from=builder /app/codegen /bin/codegen
 
 ENV IBM_DB_HOME=/opt/ibm/clidriver
 ENV LD_LIBRARY_PATH=${IBM_DB_HOME}/lib
@@ -70,22 +69,7 @@ ENV CGO_CFLAGS="-I${IBM_DB_HOME}/include"
 # add rpath so test binaries find libdb2.so at runtime
 ENV CGO_LDFLAGS="-L${IBM_DB_HOME}/lib -Wl,-rpath,${IBM_DB_HOME}/lib"
 
-# Verify tools (for debugging)
-RUN go version && python3 --version && git --version && docker --version && make --version
-
-WORKDIR /work/codegen
-
-RUN go install golang.org/x/tools/cmd/goimports@latest
-RUN go install github.com/swaggo/swag/cmd/swag@latest
-
-RUN goimports -v
-RUN swag -v
-
-COPY --from=builder /app/codegen /bin/codegen
-
-COPY app /work/app
 WORKDIR /work/app
-RUN go mod download
 
 WORKDIR /work/codegen
 COPY base ./base

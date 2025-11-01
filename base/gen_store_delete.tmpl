@@ -38,6 +38,7 @@ func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}
       {{- range .PKeys -}}
         "{{.Field}}", {{.Name}},
       {{- end }}
+      slog.Any("Error", err),
     )
     return deleteError(err)
   }
@@ -47,6 +48,7 @@ func (r *{{.ID}}StoreImpl) Delete(ctx context.Context, {{template "ParamFk" . }}
       {{- range .PKeys -}}
         "{{.Field}}", {{.Name}},
       {{- end }}
+      slog.Any("Error", err),
     )
     return err
   }

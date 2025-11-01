@@ -66,16 +66,16 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
     args = append(args, obj.{{.ID}})
     qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
   {{- end}}{{- end}}
-	logQueryArgs("store.{{.ID}}.Update", qry, args)
+	slog.Debug("store.{{.ID}}.Update", logQueryArgs(qry, args, nil)...)
   res, err := tx.ExecContext(ctx, qry, args...)
   if err != nil {
-	  logErrorQueryArgs("store.{{.ID}}.Update", qry, args)
-    return updateError(r.db, err)
+		nargs := append(append([]any{}, "qry", qry), args...)
+    return updateError(r.db, "store.{{.ID}}.Update", err, nargs...)
   }
   ra, err := res.RowsAffected()
   if err != nil {
-  	logErrorQueryArgs("store.{{.ID}}.Update.RowsAffected", qry, args)
-    return err
+		nargs := append(append([]any{}, "qry", qry), args...)
+    return updateError(r.db, "store.{{.ID}}.Update.RowsAffected", err, nargs...)
   }
   if ra == 0 {
     return fmt.Errorf("NO_ROWS_AFFECTED")
@@ -89,13 +89,13 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
       {{if gt $idx 0}}, {{end}} {{.Field}}
     {{- end}} FROM {{.MapTable}} WHERE`
     {{$idx := 0}}{{range .MapKeys -}}
-      qry += fmt.Sprintf("{{if gt $idx 0}} AND {{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
       args = append(args, obj.{{.Ref.ID}})
+      qry += fmt.Sprintf("{{if gt $idx 0}} AND {{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
     {{- end}}
-  	logQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Find", qry, args)
+	  slog.Debug("store.{{.Model.ID}}.Update.{{.ID}}.Find", logQueryArgs(qry, args, nil)...)
     rows, err := tx.QueryContext(ctx, qry, args...)
     if err != nil {
-  	  logErrorQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Find", qry, args)
+      slog.Warn("store.{{.Model.ID}}.Update.{{.ID}}.Find", logQueryArgs(qry, args, err)...)
       return err
     }
     defer rows.Close()
@@ -110,7 +110,7 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
         {{- end}}
       )
       if err != nil {
-  	    logErrorQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Find.Scan", qry, args)
+        slog.Warn("store.{{.Model.ID}}.Update.{{.ID}}.Find.Scan", logQueryArgs(qry, args, err)...)
         return err
       }
       cur_{{.ID}} = append(cur_{{.ID}}, &mobj)
@@ -147,17 +147,17 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
       args = []any{}
       qry = `DELETE FROM {{.MapTable}} WHERE`
       {{- $idx := 0}}{{range .MapKeys }}
-        qry += fmt.Sprintf("{{if gt $idx 0}} AND{{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
         args = append(args, obj.{{.Ref.ID}})
+        qry += fmt.Sprintf("{{if gt $idx 0}} AND{{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
       {{- end}}
       {{- range .RefKeys }}
-        qry += fmt.Sprintf("{{if gt $idx 0}} AND{{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
         args = append(args, mobj.{{.Ref.ID}})
+        qry += fmt.Sprintf("{{if gt $idx 0}} AND{{end}} {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
       {{- end}}
-  	  logQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Delete", qry, args)
+  	  slog.Debug("store.{{.Model.ID}}.Update.{{.ID}}.Delete", logQueryArgs(qry, args, nil)...)
       res, err := tx.ExecContext(ctx, qry, args...)
       if err != nil {
-  	    logErrorQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Delete", qry, args)
+        slog.Warn("store.{{.Model.ID}}.Update.{{.ID}}.Delete", logQueryArgs(qry, args, err)...)
         return updateDeleteError(err)
       }
     	ra, err := res.RowsAffected()
@@ -194,10 +194,10 @@ func (r *{{.ID}}StoreImpl) Update(ctx context.Context, obj {{.ID}}, fields []{{.
       {{- range .RefKeys}}
         args = append(args, mobj.{{.Ref.ID}})
       {{- end}}
-  	  logQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Insert", qry, args)
+  	  slog.Debug("store.{{.Model.ID}}.Update.{{.ID}}.Insert", logQueryArgs(qry, args, nil)...)
       res, err := tx.ExecContext(ctx, qry, args...)
       if err != nil {
-  	    logErrorQueryArgs("store.{{.Model.ID}}.Update.{{.ID}}.Insert", qry, args)
+        slog.Warn("store.{{.Model.ID}}.Update.{{.ID}}.Insert", logQueryArgs(qry, args, err)...)
         return updateInsertError(err)
       }
     	ra, err := res.RowsAffected()
@@ -249,15 +249,15 @@ func (r *{{.Model.ID}}StoreImpl) Update{{.ID}}(ctx context.Context, {{template "
     args = append(args, {{.Field}})
     qry += fmt.Sprintf("{{if gt $idx 0}} AND\n{{end}}  {{.Field}} = {{ template "QryParamArg" . }}{{$idx = add $idx 1}}
   {{- end}}{{- end}}
-	logQueryArgs("store.{{.Model.ID}}.Update{{.ID}}", qry, args)
+	slog.Debug("store.{{.Model.ID}}.Update{{.ID}}", logQueryArgs(qry, args, nil)...)
   res, err := tx.ExecContext(ctx, qry, args...)
   if err != nil {
-	  logErrorQueryArgs("store.{{.Model.ID}}.Update{{.ID}}", qry, args)
-    return updateError(r.db, err)
+		nargs := append(append([]any{}, "qry", qry), args...)
+    return updateError(r.db, "store.{{.Model.ID}}.Update{{.ID}}", err, nargs)
   }
   ra, err := res.RowsAffected()
   if err != nil {
-	  logErrorQueryArgs("store.{{.Model.ID}}.Update{{.ID}}.RowsAffected", qry, args)
+    slog.Warn("store.{{.Model.ID}}.Update{{.ID}}.RowsAffected", logQueryArgs(qry, args, err)...)
     return err
   }
   if ra == 0 {

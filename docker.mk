@@ -126,7 +126,7 @@ define docker-build
 			bargs=$$($(call build-args)); \
 			if [ "$(5)" == "" ]; then \
 				docker build --progress=plain \
-					$$bargs -t ${DOCKER_REGISTRY}/$3:$$app_ver $1; \
+					$$bargs -t $3:$$app_ver $1; \
 			else \
 				docker build -f $(4) --progress=plain \
 					$$bargs -t $3:$$app_ver $5; \
