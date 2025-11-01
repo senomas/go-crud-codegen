@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+ARG DOCKER_REGISTRY=docker.io
+
+FROM ${DOCKER_REGISTRY}/python:3.12-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends git make ca-certificates curl \
@@ -26,6 +28,8 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH=/go
 ENV GOCACHE=/go/cache
 ENV PATH="$GOPATH/bin:${PATH}"
+
+RUN pip install docker cryptography
 
 # Verify tools (for debugging)
 RUN go version && python3 --version && git --version && docker --version && make --version

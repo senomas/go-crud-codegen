@@ -7,6 +7,7 @@ Usage:
   prop.py get <file> <KEY>
   prop.py set <file> <KEY> <VALUE>
   prop.py set-many <file> KEY=VALUE [KEY=VALUE ...]
+  prop.py build-args <file>
 Notes:
   - Matches keys as ^KEY= (no leading spaces).
   - If key not found, appends 'KEY=VALUE' at end.
@@ -57,7 +58,7 @@ def set_key(lines, key, value):
 
 
 def main(argv):
-    if len(argv) < 3 or argv[1] not in ("get", "set", "set-many"):
+    if len(argv) < 2:
         print(USAGE, file=sys.stderr)
         return 2
 
@@ -96,6 +97,28 @@ def main(argv):
             new_lines = set_key(new_lines, k, v)
         write_atomic(fpath, new_lines)
         return 0
+
+    if cmd == "build-args":
+        with open(fpath) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    key, value = line.split("=", 1)
+                    print(f"--build-arg {key}={value}", end=" ")
+        return 0
+
+    if cmd == "envs":
+        with open(fpath) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    key, value = line.split("=", 1)
+                    print(f"-e {key}={value}", end=" ")
+        return 0
+
+    print(f"Unknown command: {argv}", file=sys.stderr)
+    print(USAGE, file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

@@ -5,25 +5,49 @@ __COMMON_MK__ := 1
 DC := docker compose --env-file .env --env-file .secret.env --env-file .local.env  -f compose.yml
 
 define prop-get
-docker run --rm --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work python:3.12-slim \
+	docker run --rm --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work \
+		${DOCKER_REGISTRY}/python:3.12-slim \
 		python3 build-util/prop.py get build.properties $(1)
 endef
-	
+
 define prop-set
-	docker run --rm --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work python:3.12-slim \
+	docker run --rm --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work \
+		${DOCKER_REGISTRY}/python:3.12-slim \
 		python3 build-util/prop.py set build.properties $(1) $(2)
 endef
-	
+
 define env-set
-	docker run --rm --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work python:3.12-slim \
+	docker run --rm --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work \
+		${DOCKER_REGISTRY}/python:3.12-slim \
 		python3 build-util/prop.py set .env $(1) $(2)
 endef
-	
+
+define build-args
+	docker run --rm --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work \
+		${DOCKER_REGISTRY}/python:3.12-slim \
+		python3 build-util/prop.py build-args build.properties
+endef
+
+define envs
+	docker run --rm --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work \
+		${DOCKER_REGISTRY}/python:3.12-slim \
+		python3 build-util/prop.py envs build.properties
+endef
+
+define clean-images
+	docker images "$(1)" \
+	  --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' \
+		| docker run --rm -i --user $$(id -u):$$(id -g) -v "$$(pwd)":/work -w /work \
+			${DOCKER_REGISTRY}/python:3.12-slim \
+			python3 build-util/docker-keep-last.py 1 \
+		| xargs -r -n1 sh -c 'docker rmi "$0" >/dev/null 2>&1 || true'
+endef
+
 define bump-ver
 	docker run --rm \
 		-v "$$(pwd)":/work \
 		-w /work \
-		python:3.12-slim \
+		${DOCKER_REGISTRY}/python:3.12-slim \
 		python3 build-util/bump_ver.py $(1)
 endef
 	
@@ -45,21 +69,25 @@ define start-service
 		echo -e "\n\nStarting $$svc"; \
 		$(DC) up -d --remove-orphans $$svc || ( $(DC) logs $$svc ; exit 1 ); \
 	done; \
+	timeout=${HEALTHY_TIMEOUT}; \
+	if [ "$$timeout" == "" ]; then \
+		timeout=300; \
+	fi; \
 	for svc in $(1); do \
-		echo "⏳ Waiting for $$svc to be healthy (timeout 120s)..."; \
+		echo -ne "\r ⏳Waiting for $$svc to be healthy (0/$${timeout}s)..."; \
 		SECS=0; \
-		while [ "$$SECS" -lt 120 ]; do \
+		while [ "$$SECS" -lt $${timeout} ]; do \
 			STATUS=$$($(DC) ps -q $$svc | xargs -r docker inspect -f '{{.State.Health.Status}}'); \
 			if [ "$$STATUS" = "healthy" ]; then \
-				echo "✅ $$svc is healthy"; \
+				echo -e "\r \e[32m\xE2\x9C\x94\e[0m Container $$svc is \e[32mhealthy\e[0m                                                        "; \
 				break; \
 			fi; \
 			sleep 5; \
 			SECS=$$((SECS+5)); \
-			echo "…still waiting for $$svc ($$SECS/120s)"; \
+			echo -ne "\r ⏳Waiting for $$svc to be healthy ($$SECS/$${timeout}s)..."; \
 		done; \
-		if [ "$$SECS" -ge 120 ]; then \
-			echo "❌ $$svc failed to become healthy within 120s"; \
+		if [ "$$SECS" -ge $${timeout} ]; then \
+			echo -e "\r ❌Container $$svc failed to become healthy within $${timeout}s        "; \
 			$(DC) logs $$svc; \
 			exit 1; \
 		fi; \
@@ -76,41 +104,47 @@ define wait-healthy
 endef
 
 define docker-build
-	@echo -e "Processing $(2) - $(1)"; \
+	@echo "Checking git status for $(1)..."; \
+	dirty=$$(git status --porcelain -- $(1)); \
+	if [ -n "$$dirty" ]; then \
+    echo "ERROR: Dirty, please commit/clean manually."; \
+		git status --porcelain -- $(1); \
+    exit 1; \
+  fi; \
 	app_ver=$$(git log -1 --date=format-local:%Y%m%d-%H%M%S --format=%cd -- $(1))-$$(git log -1 --format=%h -- $(1)); \
-	echo "Computed version: $$app_ver"; \
 	prop_ver=$$($(call prop-get,$(2)_VER)); \
-	if [ "$$app_ver" != "$$prop_hash" ]; then \
+	if [ "$$app_ver" != "$$prop_ver" ]; then \
 		echo "$(2): Changes detected, updating codegen and rebuilding..."; \
-		echo "Bumping version $$prop_ver -> $$app_ver"; \
+		echo "Bumping version [$$prop_ver] -> [$$app_ver]"; \
 	fi; \
 	( \
 		docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q "^${DOCKER_REGISTRY}/$3:$$app_ver$$" && \
 		echo "Docker image ${DOCKER_REGISTRY}/$3:$$app_ver already exists locally." || \
-		docker pull ${DOCKER_REGISTRY}/$3:$$app_ver || \
+		docker pull ${DOCKER_REGISTRY}/$3:$$app_ver 2>/dev/null || \
 		( \
-			dirty=$$(git status --porcelain -- $(1)); \
-			last_msg=$$(git log -1 --pretty=%s -- $1 2>/dev/null || true); \:
-			if [ -n "$$dirty" ]; then \
-			  if printf "%s" "$$last_msg" | grep -qiE '^dev$$'; then \
-			    echo "Working tree $1 dirty and last commit is 'dev' — amending changes..."; \
-			    git add -A; \
-			    git commit --amend --no-edit; \
-			  else \
-					echo "$(2): ERROR: Working tree is dirty, but last commit message is not exactly 'dev'."; \
-			    echo "       Please commit/clean manually."; \
-			    exit 1; \
-			  fi; \
+			echo Building docker image ${DOCKER_REGISTRY}/$3:$$app_ver ...; \
+			bargs=$$($(call build-args)); \
+			if [ "$(5)" == "" ]; then \
+				docker build --progress=plain \
+					$$bargs -t ${DOCKER_REGISTRY}/$3:$$app_ver $1; \
+			else \
+				docker build -f $(4) --progress=plain \
+					$$bargs -t $3:$$app_ver $5; \
 			fi; \
-			ARGS=$$(cat .build.env | grep -v '^#' | xargs -d '\n' -I{} echo --build-arg {}) ; \
-			docker build --build-arg DOCKER_REGISTRY=${DOCKER_REGISTRY} $$ARGS \
-				-t ${DOCKER_REGISTRY}/$3:$$app_ver $1 && \
-			docker push ${DOCKER_REGISTRY}/$3:$$app_ver \
+			if [ "${DOCKER_PUSH}" != "" ]; then \
+				docker tag $3:$$app_ver ${DOCKER_PUSH}/$3:$$app_ver; \
+	      docker push ${DOCKER_PUSH}/$3:$$app_ver; \
+				echo -e "\e[32m\xE2\x9C\x94\e[0m  Build complete, new version is ${DOCKER_PUSH}/$3:$$app_ver"
+			else \
+				docker tag $3:$$app_ver ${DOCKER_REGISTRY}/$3:$$app_ver; \
+				echo -e "\e[32m\xE2\x9C\x94\e[0m  Build complete, new version is ${DOCKER_REGISTRY}/$3:$$app_ver"
+			fi; \
 		) \
 	); \
-	$(call prop-set,$2_VER,$$app_ver); \
-	$(call env-set,$2_VER,$$app_ver); \
-	echo "✅ Build complete, new version is $$app_ver"
+	if [ "$$app_ver" != "$$prop_ver" ]; then \
+    echo "Updating version in build.properties: $(2)_VER = $$app_ver"; \
+		$(call prop-set,$2_VER,$$app_ver); \
+	fi
 endef
 
 define docker-upgrade

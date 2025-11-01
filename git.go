@@ -19,10 +19,15 @@ func diff(file string) {
 	} else {
 		log.Fatalf("Error checking %s: %v\n", file, err)
 	}
-	out, err := exec.Command("git", "--no-pager", "diff", "--", file).CombinedOutput()
+	out, err := exec.Command("pwd").CombinedOutput()
+	if err != nil {
+		log.Fatalf("Checking pwd: %v\n\n%s",
+			err, string(out))
+	}
+	fmt.Printf("Checking git diff for %s in %s\n", file, strings.TrimSpace(string(out)))
+	out, err = exec.Command("git", "--no-pager", "diff", "--", file).CombinedOutput()
 	if err != nil {
 		log.Fatalf("Checking git diff for %s: %v\n\n%s", file, err, string(out))
-		os.Exit(1)
 	}
 	scanner := bufio.NewScanner(bytes.NewBuffer(out))
 	for scanner.Scan() {
