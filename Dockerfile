@@ -1,6 +1,6 @@
 ARG DOCKER_REGISTRY=docker.io
 ARG BUILD_UTIL_VER=ver
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VER=3.12
 FROM ${DOCKER_REGISTRY}/codegen-build-util:${BUILD_UTIL_VER} AS builder
 
 ENV GOPATH=/work/.go
@@ -16,15 +16,15 @@ COPY *.go .
 
 RUN go build -o codegen .
 
-FROM ${DOCKER_REGISTRY}/python:${PYTHON_VERSION}-slim
+FROM ${DOCKER_REGISTRY}/python:${PYTHON_VER}-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends git make ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
 # docker CLI (talks to host daemon via mounted /var/run/docker.sock)
-ARG DOCKER_CLI_VERSION=27.3.1
-RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz \
+ARG DOCKER_CLI_VER=27.3.1
+RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VER}.tgz \
   | tar -xz -C /usr/local/bin --strip-components=1 docker/docker
 
 # Install essential tools
@@ -35,8 +35,8 @@ RUN apt-get update \
 
 # Install Go (1.25.1)
 # --------------------------------------------------------------------
-ARG GO_VERSION=1.25.1
-RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz \
+ARG GO_VER=1.25.1
+RUN curl -fsSL https://go.dev/dl/go${GO_VER}.linux-amd64.tar.gz \
   | tar -C /usr/local -xz
 ENV PATH="/usr/local/go/bin:${PATH}"
 
@@ -57,8 +57,7 @@ RUN go install golang.org/x/tools/cmd/goimports@${GOIMPORTS_VER}
 ARG SWAGGO_VER=v1
 RUN go install github.com/swaggo/swag/cmd/swag@${SWAGGO_VER}
 
-RUN goimports -v
-RUN swag -v
+RUN goimports -v && swag -v
 
 COPY --from=builder /app/codegen /bin/codegen
 
